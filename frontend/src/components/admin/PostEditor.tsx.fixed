@@ -1,0 +1,626 @@
+'use client';
+
+import { useRef, useState, useEffect } from 'react';
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Image from '@tiptap/extension-image';
+import Link from '@tiptap/extension-link';
+import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
+import { createLowlight, common } from 'lowlight';
+import CharacterCount from '@tiptap/extension-character-count';
+import { Button } from '@/components/ui/button';
+import {
+  Bold,
+  Italic,
+  Strikethrough,
+  Code as CodeIcon,
+  Code2,
+  List,
+  ListOrdered,
+  Quote,
+  Undo,
+  Redo,
+  Link as LinkIcon,
+  Image as ImageIcon,
+  Heading1,
+  Heading2,
+  Heading3,
+  Maximize2,
+  Minimize2,
+  MoreHorizontal,
+  AlertTriangle,
+} from 'lucide-react';
+import { uploadAPI } from '@/lib/api';
+
+interface PostEditorProps {
+  content: string;
+  onChange: (content: string) => void;
+}
+
+// Create a lightweight lowlight instance with common languages (smaller bundle and widely supported)
+const lowlight = createLowlight(common);
+
+const CODE_LANGS = [
+  '', // no language
+  'javascript',
+  'typescript',
+  'jsx',
+  'json',
+  'bash',
+  'python',
+  'html',
+  'css',
+  'markdown',
+];
+
+function PostEditorInner({ content, onChange }: PostEditorProps) {
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        heading: {
+          levels: [1, 2, 3],
+        },
+        codeBlock: false, // We'll handle this with our custom code block
+      }),
+      Image,
+      Link.configure({
+        openOnClick: true,
+        autolink: true,
+        linkOnPaste: true,
+      }),
+      CodeBlockLowlight.extend({
+        addKeyboardShortcuts() {
+          return {
+            'Mod-Enter': () => this.editor.commands.exitCode(),
+          };
+        },
+      }).configure({ lowlight }),
+      CharacterCount.configure({
+        // no hard limit; we only display
+      }),
+    ],
+    content,
+    onUpdate: ({ editor }) => {
+      onChange(editor.getHTML());
+    },
+    // Prevent SSR hydration mismatches with Next.js App Router
+    immediatelyRender: false,
+    editable: true,
+    editorProps: {
+      attributes: {
+        class: 'prose prose-sm max-w-none p-4 min-h-[400px] focus:outline-none',
+        'aria-label': 'Post content editor',
+        tabindex: '0',
+        spellcheck: 'true',
+      },
+      handleDOMEvents: {
+        mousedown: (view) => {
+          if (!view.hasFocus()) view.focus();
+          return false;
+        },
+      },
+    },
+  });
+
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const ready = Boolean(editor);
+  const [fullscreen, setFullscreen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const moreBtnRef = useRef<HTMLButtonElement>(null);
+  const firstMenuItemRef = useRef<HTMLButtonElement>(null);
+  const fullscreenBtnRef = useRef<HTMLButtonElement>(null);
+
+  const apiOrigin = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/api$/, '');
+
+  const onUploadClick = () => fileInputRef.current?.click();
+
+  const onFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setUploading(true);
+      setUploadError(null);
+      const res = await uploadAPI.uploadImage(file);
+      const url: string = res.data?.url || '';
+      const fullUrl = url.startsWith('http') ? url : `${apiOrigin}${url}`;
+      if (editor) {
+        const alt = window.prompt('Image alt text (optional)', '') || '';
+        editor.chain().focus().setImage({ src: fullUrl, alt }).run();
+      }
+    } catch (err) {
+      console.error('Image upload failed', err);
+      const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+      setUploadError(
+        offline 
+          ? 'You appear to be offline. Please check your connection and try again.'
+          : 'Failed to upload image. Please try again.'
+      );
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const addLink = () => {
+    if (!editor) return;
+    
+    const previousUrl = editor.getAttributes('link').href;
+    const url = window.prompt('URL', previousUrl);
+
+    // cancelled
+    if (url === null) {
+      return;
+    }
+
+    // empty
+    if (url === '') {
+      editor.chain().focus().extendMarkRange('link').unsetLink().run();
+      return;
+    }
+
+    // update link
+    editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+  };
+
+  // Ensure editor gains focus on mount
+  useEffect(() => {
+    if (editor) editor.commands.focus('end');
+  }, [editor]);
+
+  // Toggle fullscreen mode
+  useEffect(() => {
+    if (fullscreen) {
+      document.body.style.overflow = 'hidden';
+      // Focus the editor when entering fullscreen
+      editor?.commands.focus('end');
+      // Add keyboard shortcut to exit fullscreen
+      const onKey = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') setFullscreen(false);
+      };
+      window.addEventListener('keydown', onKey);
+      // Ensure editor receives focus when entering fullscreen
+      setTimeout(() => editor?.commands.focus('end'), 0);
+      return () => {
+        document.body.style.overflow = '';
+        window.removeEventListener('keydown', onKey);
+        // Restore focus to the fullscreen button after exiting
+        fullscreenBtnRef.current?.focus();
+      };
+    }
+  }, [fullscreen, editor]);
+
+  // Close mobile "More" menu on outside click or Escape
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (!toolbarRef.current) return;
+      if (!toolbarRef.current.contains(e.target as Node)) {
+        setMoreOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMoreOpen(false);
+    };
+    document.addEventListener('mousedown', onDocClick);
+    document.addEventListener('keydown', onKey);
+    // Move focus to the first menu item when menu opens
+    setTimeout(() => firstMenuItemRef.current?.focus(), 0);
+    return () => {
+      document.removeEventListener('mousedown', onDocClick);
+      document.removeEventListener('keydown', onKey);
+      // Restore focus to the menu button after closing
+      moreBtnRef.current?.focus();
+    };
+  }, [moreOpen]);
+
+  if (!ready) {
+    return (
+      <div className="border rounded-lg p-4 min-h-[400px] flex items-center justify-center">
+        <div className="animate-pulse text-muted-foreground">Loading editor...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div 
+      className={`${fullscreen ? 'fixed inset-0 z-50 bg-background/95 backdrop-blur border-0 rounded-none flex flex-col' : 'border rounded-lg'} `} 
+      onMouseDown={() => editor?.commands.focus()}
+    >
+      <div
+        className="border-b p-2 flex flex-wrap items-center gap-1 relative"
+        onMouseDown={(e) => { e.stopPropagation(); }}
+        ref={toolbarRef}
+        role="toolbar"
+        aria-label="Editor toolbar"
+      >
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={!ready}
+          onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onClick={() => editor && editor.chain().focus().toggleBold().run()}
+          className={editor?.isActive('bold') ? 'bg-accent' : ''}
+          aria-label="Bold"
+          aria-pressed={editor?.isActive('bold') ? true : false}
+        >
+          <Bold className="h-4 w-4" />
+        </Button>
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={!ready}
+          onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onClick={() => editor && editor.chain().focus().toggleItalic().run()}
+          className={editor?.isActive('italic') ? 'bg-accent' : ''}
+          aria-label="Italic"
+          aria-pressed={editor?.isActive('italic') ? true : false}
+        >
+          <Italic className="h-4 w-4" />
+        </Button>
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={!ready}
+          onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onClick={() => editor && editor.chain().focus().toggleStrike().run()}
+          className={editor?.isActive('strike') ? 'bg-accent' : ''}
+          aria-label="Strikethrough"
+          aria-pressed={editor?.isActive('strike') ? true : false}
+        >
+          <Strikethrough className="h-4 w-4" />
+        </Button>
+
+        <div className="h-6 w-px bg-border mx-1" />
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={!ready}
+          onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onClick={() => editor && editor.chain().focus().toggleHeading({ level: 1 }).run()}
+          className={editor?.isActive('heading', { level: 1 }) ? 'bg-accent' : ''}
+          aria-label="Heading 1"
+          aria-pressed={editor?.isActive('heading', { level: 1 }) ? true : false}
+        >
+          <Heading1 className="h-4 w-4" />
+        </Button>
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={!ready}
+          onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onClick={() => editor && editor.chain().focus().toggleHeading({ level: 2 }).run()}
+          className={editor?.isActive('heading', { level: 2 }) ? 'bg-accent' : ''}
+          aria-label="Heading 2"
+          aria-pressed={editor?.isActive('heading', { level: 2 }) ? true : false}
+        >
+          <Heading2 className="h-4 w-4" />
+        </Button>
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={!ready}
+          onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onClick={() => editor && editor.chain().focus().toggleHeading({ level: 3 }).run()}
+          className={editor?.isActive('heading', { level: 3 }) ? 'bg-accent' : ''}
+          aria-label="Heading 3"
+          aria-pressed={editor?.isActive('heading', { level: 3 }) ? true : false}
+        >
+          <Heading3 className="h-4 w-4" />
+        </Button>
+
+        <div className="h-6 w-px bg-border mx-1" />
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={!ready}
+          onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onClick={addLink}
+          className={editor?.isActive('link') ? 'bg-accent' : ''}
+          aria-label="Add link"
+          aria-pressed={editor?.isActive('link') ? true : false}
+        >
+          <LinkIcon className="h-4 w-4" />
+        </Button>
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={!ready || uploading}
+          onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onClick={onUploadClick}
+          className="relative"
+          aria-label="Insert image"
+        >
+          {uploading ? (
+            <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+          ) : (
+            <ImageIcon className="h-4 w-4" />
+          )}
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={onFileSelected}
+            accept="image/*"
+            className="hidden"
+            aria-hidden="true"
+          />
+        </Button>
+
+        <div className="h-6 w-px bg-border mx-1" />
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={!ready}
+          onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onClick={() => editor && editor.chain().focus().toggleBulletList().run()}
+          className={editor?.isActive('bulletList') ? 'bg-accent' : ''}
+          aria-label="Bullet list"
+          aria-pressed={editor?.isActive('bulletList') ? true : false}
+        >
+          <List className="h-4 w-4" />
+        </Button>
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={!ready}
+          onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onClick={() => editor && editor.chain().focus().toggleOrderedList().run()}
+          className={editor?.isActive('orderedList') ? 'bg-accent' : ''}
+          aria-label="Ordered list"
+          aria-pressed={editor?.isActive('orderedList') ? true : false}
+        >
+          <ListOrdered className="h-4 w-4" />
+        </Button>
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={!ready}
+          onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onClick={() => editor && editor.chain().focus().toggleCodeBlock().run()}
+          className={editor?.isActive('codeBlock') ? 'bg-accent' : ''}
+          aria-label="Code block"
+          aria-pressed={editor?.isActive('codeBlock') ? true : false}
+        >
+          <Code2 className="h-4 w-4" />
+        </Button>
+
+        <div className="h-6 w-px bg-border mx-1" />
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={!ready}
+          onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onClick={() => editor && editor.chain().focus().toggleBlockquote().run()}
+          className={editor?.isActive('blockquote') ? 'bg-accent' : ''}
+          aria-label="Blockquote"
+          aria-pressed={editor?.isActive('blockquote') ? true : false}
+        >
+          <Quote className="h-4 w-4" />
+        </Button>
+
+        <div className="ml-auto flex items-center gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={!ready}
+            onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+            onClick={() => editor && editor.chain().focus().undo().run()}
+            aria-label="Undo"
+          >
+            <Undo className="h-4 w-4" />
+          </Button>
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={!ready}
+            onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+            onClick={() => editor && editor.chain().focus().redo().run()}
+            aria-label="Redo"
+          >
+            <Redo className="h-4 w-4" />
+          </Button>
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            ref={fullscreenBtnRef}
+            onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+            onClick={() => setFullscreen((v) => !v)}
+            title={fullscreen ? 'Exit fullscreen (Esc)' : 'Enter fullscreen'}
+            aria-label={fullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+          >
+            {fullscreen ? (
+              <Minimize2 className="h-4 w-4" />
+            ) : (
+              <Maximize2 className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
+
+        {/* Mobile: More menu button */}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          ref={moreBtnRef}
+          className="sm:hidden"
+          onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onClick={() => setMoreOpen((v) => !v)}
+          aria-expanded={moreOpen}
+          aria-haspopup="menu"
+          aria-label="More formatting options"
+        >
+          <MoreHorizontal className="h-4 w-4" />
+        </Button>
+
+        {/* Mobile: More menu content */}
+        {moreOpen && (
+          <div
+            id="editor-more-menu"
+            className="absolute left-2 right-2 top-full z-50 mt-2 border bg-background rounded-md shadow p-2 grid grid-cols-6 gap-1 sm:hidden"
+            role="menu"
+            aria-label="More formatting options"
+          >
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              ref={firstMenuItemRef}
+              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+              onClick={() => { editor && editor.chain().focus().toggleCode().run(); setMoreOpen(false); }}
+              className={editor?.isActive('code') ? 'bg-accent' : ''}
+              aria-label="Inline code"
+              aria-pressed={editor?.isActive('code') ? true : false}
+              role="menuitem"
+            >
+              <CodeIcon className="h-4 w-4" />
+            </Button>
+
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+              onClick={() => { editor && editor.chain().focus().toggleCodeBlock().run(); setMoreOpen(false); }}
+              className={editor?.isActive('codeBlock') ? 'bg-accent' : ''}
+              aria-label="Code block"
+              aria-pressed={editor?.isActive('codeBlock') ? true : false}
+              role="menuitem"
+            >
+              <Code2 className="h-4 w-4" />
+            </Button>
+
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+              onClick={() => { editor && editor.chain().focus().toggleHeading({ level: 1 }).run(); setMoreOpen(false); }}
+              className={editor?.isActive('heading', { level: 1 }) ? 'bg-accent' : ''}
+              aria-label="Heading 1"
+              aria-pressed={editor?.isActive('heading', { level: 1 }) ? true : false}
+              role="menuitem"
+            >
+              <Heading1 className="h-4 w-4" />
+            </Button>
+
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+              onClick={() => { editor && editor.chain().focus().toggleHeading({ level: 2 }).run(); setMoreOpen(false); }}
+              className={editor?.isActive('heading', { level: 2 }) ? 'bg-accent' : ''}
+              aria-label="Heading 2"
+              aria-pressed={editor?.isActive('heading', { level: 2 }) ? true : false}
+              role="menuitem"
+            >
+              <Heading2 className="h-4 w-4" />
+            </Button>
+
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+              onClick={() => { editor && editor.chain().focus().toggleHeading({ level: 3 }).run(); setMoreOpen(false); }}
+              className={editor?.isActive('heading', { level: 3 }) ? 'bg-accent' : ''}
+              aria-label="Heading 3"
+              aria-pressed={editor?.isActive('heading', { level: 3 }) ? true : false}
+              role="menuitem"
+            >
+              <Heading3 className="h-4 w-4" />
+            </Button>
+
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+              onClick={() => { editor && editor.chain().focus().toggleBulletList().run(); setMoreOpen(false); }}
+              className={editor?.isActive('bulletList') ? 'bg-accent' : ''}
+              aria-label="Bullet list"
+              aria-pressed={editor?.isActive('bulletList') ? true : false}
+              role="menuitem"
+            >
+              <List className="h-4 w-4" />
+            </Button>
+
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+              onClick={() => { editor && editor.chain().focus().toggleOrderedList().run(); setMoreOpen(false); }}
+              className={editor?.isActive('orderedList') ? 'bg-accent' : ''}
+              aria-label="Ordered list"
+              aria-pressed={editor?.isActive('orderedList') ? true : false}
+              role="menuitem"
+            >
+              <ListOrdered className="h-4 w-4" />
+            </Button>
+
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+              onClick={() => { editor && editor.chain().focus().toggleBlockquote().run(); setMoreOpen(false); }}
+              className={editor?.isActive('blockquote') ? 'bg-accent' : ''}
+              aria-label="Blockquote"
+              aria-pressed={editor?.isActive('blockquote') ? true : false}
+              role="menuitem"
+            >
+              <Quote className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+      </div>
+
+      <EditorContent 
+        editor={editor}
+        className={`flex-1 overflow-auto ${fullscreen ? 'h-[calc(100vh-56px)]' : ''}`}
+      />
+
+      {uploadError && (
+        <div className="border-t p-2 bg-destructive/10 text-destructive-foreground text-sm flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+          <span>{uploadError}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function PostEditor(props: PostEditorProps) {
+  // Force a remount across HMR changes to avoid lingering hook order state
+  return <PostEditorInner key="v2" {...props} />;
+}

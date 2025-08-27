@@ -1,0 +1,69 @@
+import { Controller, Post, Body, Res } from '@nestjs/common';
+import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { AuthService } from './auth.service';
+import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
+import type { Response } from 'express';
+import { ConfigService } from '@nestjs/config';
+
+@ApiTags('auth')
+@Controller('auth')
+export class AuthController {
+  constructor(private authService: AuthService, private config: ConfigService) {}
+
+  @Post('register')
+  @ApiOperation({ summary: 'Register a new user' })
+  async register(@Body() registerDto: RegisterDto) {
+    return this.authService.register(registerDto);
+  }
+
+  @Post('login')
+  @ApiOperation({ summary: 'Login user' })
+  async login(@Body() loginDto: LoginDto, @Res({ passthrough: true }) res: Response) {
+    const result = await this.authService.login(loginDto);
+    // Optionally set HttpOnly cookie for JWT, controlled by env
+    const cookieEnabled = this.config.get('AUTH_COOKIE_ENABLED') === 'true';
+    if (cookieEnabled) {
+      const name = this.config.get('AUTH_COOKIE_NAME') || 'access_token';
+      const sameSiteRaw = (this.config.get('AUTH_COOKIE_SAMESITE') || 'Lax').toString();
+      // Normalize to Express types: 'lax' | 'strict' | 'none'
+      const sameSite = sameSiteRaw.toLowerCase() as 'lax' | 'strict' | 'none';
+      const secure = this.config.get('AUTH_COOKIE_SECURE') === 'true';
+      const domain = this.config.get('AUTH_COOKIE_DOMAIN');
+      const remember = !!loginDto.rememberMe;
+      const defaultMaxAge = 30 * 24 * 60 * 60 * 1000; // 30d
+      const rememberMax = Number(this.config.get('AUTH_COOKIE_REMEMBER_MAX_AGE_MS') || defaultMaxAge);
+      res.cookie(name, result.access_token, {
+        httpOnly: true,
+        sameSite,
+        secure,
+        path: '/',
+        ...(domain ? { domain } : {}),
+        ...(remember ? { maxAge: rememberMax } : {}),
+      });
+    }
+    return result;
+  }
+
+  @Post('logout')
+  @ApiOperation({ summary: 'Logout (clear auth cookie if enabled)' })
+  async logout(@Res({ passthrough: true }) res: Response) {
+    const cookieEnabled = this.config.get('AUTH_COOKIE_ENABLED') === 'true';
+    if (cookieEnabled) {
+      const name = this.config.get('AUTH_COOKIE_NAME') || 'access_token';
+      const sameSiteRaw = (this.config.get('AUTH_COOKIE_SAMESITE') || 'Lax').toString();
+      const sameSite = sameSiteRaw.toLowerCase() as 'lax' | 'strict' | 'none';
+      const secure = this.config.get('AUTH_COOKIE_SECURE') === 'true';
+      const domain = this.config.get('AUTH_COOKIE_DOMAIN');
+      res.cookie(name, '', {
+        httpOnly: true,
+        sameSite,
+        secure,
+        path: '/',
+        ...(domain ? { domain } : {}),
+        maxAge: 0,
+      });
+    }
+    return { success: true };
+  }
+}

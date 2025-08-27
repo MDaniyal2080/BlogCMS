@@ -1,0 +1,233 @@
+@import "tailwindcss";
+
+/* Tailwind v4: define design tokens with @theme so utilities like bg-background/text-foreground work */
+@theme {
+  /* Fonts */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+
+  /* Radius */
+  --radius: 0.5rem;
+
+  /* Colors (light) */
+  --color-background: 0 0% 100%;
+  --color-foreground: 222.2 84% 4.9%;
+  --color-card: 0 0% 100%;
+  --color-card-foreground: 222.2 84% 4.9%;
+  --color-popover: 0 0% 100%;
+  --color-popover-foreground: 222.2 84% 4.9%;
+  --color-primary: 221.2 83.2% 53.3%;
+  --color-primary-foreground: 210 40% 98%;
+  --color-secondary: 210 40% 96.1%;
+  --color-secondary-foreground: 222.2 47.4% 11.2%;
+  --color-muted: 210 40% 96.1%;
+  --color-muted-foreground: 215.4 16.3% 46.9%;
+  --color-accent: 210 40% 96.1%;
+  --color-accent-foreground: 222.2 47.4% 11.2%;
+  --color-destructive: 0 84.2% 60.2%;
+  --color-destructive-foreground: 210 40% 98%;
+  /* Added success & warning */
+  --color-success: 160 84% 39%;
+  --color-success-foreground: 210 40% 98%;
+  --color-warning: 42 95% 55%;
+  --color-warning-foreground: 222.2 47.4% 11.2%;
+  --color-border: 214.3 31.8% 91.4%;
+  --color-input: 214.3 31.8% 91.4%;
+  --color-ring: 221.2 83.2% 53.3%;
+}
+
+@theme .dark {
+  --color-background: 222.2 84% 4.9%;
+  --color-foreground: 210 40% 98%;
+  --color-card: 222.2 84% 4.9%;
+  --color-card-foreground: 210 40% 98%;
+  --color-popover: 222.2 84% 4.9%;
+  --color-popover-foreground: 210 40% 98%;
+  --color-primary: 217.2 91.2% 59.8%;
+  --color-primary-foreground: 222.2 47.4% 11.2%;
+  --color-secondary: 217.2 32.6% 17.5%;
+  --color-secondary-foreground: 210 40% 98%;
+  --color-muted: 217.2 32.6% 17.5%;
+  --color-muted-foreground: 215 20.2% 65.1%;
+  --color-accent: 217.2 32.6% 17.5%;
+  --color-accent-foreground: 210 40% 98%;
+  --color-destructive: 0 62.8% 30.6%;
+  --color-destructive-foreground: 210 40% 98%;
+  /* Added success & warning */
+  --color-success: 160 70% 40%;
+  --color-success-foreground: 222.2 47.4% 11.2%;
+  --color-warning: 42 90% 50%;
+  --color-warning-foreground: 222.2 47.4% 11.2%;
+  --color-border: 217.2 32.6% 17.5%;
+  --color-input: 217.2 32.6% 17.5%;
+  --color-ring: 224.3 76.3% 48%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Minimal styles for Tiptap's ProseMirror content so block-level formatting is visible
+   even without @tailwindcss/typography. */
+.ProseMirror {
+  line-height: 1.7;
+}
+.ProseMirror p { margin: 0.5rem 0; }
+.ProseMirror h1 { font-size: 1.5rem; line-height: 1.25; font-weight: 700; margin: 1rem 0 0.75rem; }
+.ProseMirror h2 { font-size: 1.25rem; line-height: 1.3; font-weight: 700; margin: 0.875rem 0 0.5rem; }
+.ProseMirror h3 { font-size: 1.125rem; line-height: 1.35; font-weight: 700; margin: 0.75rem 0 0.5rem; }
+.ProseMirror ul { list-style: disc; padding-left: 1.25rem; margin: 0.5rem 0; }
+.ProseMirror ol { list-style: decimal; padding-left: 1.25rem; margin: 0.5rem 0; }
+.ProseMirror blockquote {
+  border-left: 4px solid hsl(var(--color-border));
+  padding-left: 1rem;
+  margin: 0.75rem 0;
+  color: hsl(var(--color-muted-foreground));
+}
+.ProseMirror pre {
+  background: hsl(var(--color-muted));
+  color: hsl(var(--color-foreground));
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+}
+.ProseMirror pre code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.875rem;
+}
+.ProseMirror pre code .hljs-comment,
+.ProseMirror pre code .hljs-quote { color: hsl(var(--color-muted-foreground)); font-style: italic; }
+.ProseMirror pre code .hljs-keyword,
+.ProseMirror pre code .hljs-selector-tag,
+.ProseMirror pre code .hljs-literal { color: hsl(var(--color-primary)); }
+.ProseMirror pre code .hljs-string,
+.ProseMirror pre code .hljs-attr,
+.ProseMirror pre code .hljs-attribute { color: hsl(var(--color-success)); }
+.ProseMirror pre code .hljs-number,
+.ProseMirror pre code .hljs-meta,
+.ProseMirror pre code .hljs-builtin-name { color: hsl(var(--color-warning)); }
+.ProseMirror pre code .hljs-title,
+.ProseMirror pre code .hljs-section,
+.ProseMirror pre code .hljs-name { color: hsl(var(--color-foreground)); font-weight: 600; }
+.ProseMirror pre code .hljs-emphasis { font-style: italic; }
+.ProseMirror pre code .hljs-strong { font-weight: 700; }
+.ProseMirror a { color: hsl(var(--color-primary)); text-decoration: underline; }
+
+/* Markdown (.prose) minimal typography and code highlighting */
+.prose pre {
+  background: hsl(var(--color-muted));
+  color: hsl(var(--color-foreground));
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+}
+.prose pre code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.875rem;
+}
+.prose pre code .hljs-comment,
+.prose pre code .hljs-quote { color: hsl(var(--color-muted-foreground)); font-style: italic; }
+.prose pre code .hljs-keyword,
+.prose pre code .hljs-selector-tag,
+.prose pre code .hljs-literal { color: hsl(var(--color-primary)); }
+.prose pre code .hljs-string,
+.prose pre code .hljs-attr,
+.prose pre code .hljs-attribute { color: hsl(var(--color-success)); }
+.prose pre code .hljs-number,
+.prose pre code .hljs-meta,
+.prose pre code .hljs-builtin-name { color: hsl(var(--color-warning)); }
+.prose pre code .hljs-title,
+.prose pre code .hljs-section,
+.prose pre code .hljs-name { color: hsl(var(--color-foreground)); font-weight: 600; }
+.prose pre code .hljs-emphasis { font-style: italic; }
+.prose pre code .hljs-strong { font-weight: 700; }
+.prose a { color: hsl(var(--color-primary)); text-decoration: underline; }
+.prose blockquote {
+  border-left: 4px solid hsl(var(--color-border));
+  padding-left: 1rem;
+  margin: 0.75rem 0;
+  color: hsl(var(--color-muted-foreground));
+}
+
+/* Responsive media & tables */
+img, video {
+  max-width: 100%;
+  height: auto;
+}
+iframe {
+  max-width: 100%;
+}
+
+:where(.ProseMirror, .prose) img {
+  display: block;
+  margin: 0.5rem 0;
+  border-radius: 0.5rem;
+}
+
+/* Make wide tables scroll instead of overflowing */
+:where(.ProseMirror, .prose) table {
+  width: 100%;
+  border-collapse: collapse;
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+:where(.ProseMirror, .prose) th,
+:where(.ProseMirror, .prose) td {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid hsl(var(--color-border));
+}
+:where(.ProseMirror, .prose) thead th {
+  background: hsl(var(--color-muted));
+  color: hsl(var(--color-foreground));
+}
+:where(.ProseMirror, .prose) caption {
+  caption-side: bottom;
+  text-align: left;
+  color: hsl(var(--color-muted-foreground));
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+}
+
+/* Small screens: allow code blocks to wrap if needed */
+@media (max-width: 640px) {
+  .ProseMirror pre, .prose pre {
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+}
+
+/* Print styles */
+@media print {
+  @page { margin: 12mm; }
+  .no-print { display: none !important; }
+  body { background: #fff; color: #000; }
+  a { color: inherit; text-decoration: none; }
+  img, pre, blockquote, table { break-inside: avoid; page-break-inside: avoid; }
+  pre { white-space: pre-wrap; word-break: break-word; }
+  .container { max-width: none !important; }
+}
+
+/* ----- Custom animations & helpers ----- */
+@keyframes progress-indeterminate {
+  0% { transform: translateX(-120%); }
+  50% { transform: translateX(40%); }
+  100% { transform: translateX(140%); }
+}
+
+.animate-progress {
+  animation: progress-indeterminate 1.2s ease-in-out infinite;
+}
+
+@keyframes drop-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-drop-in {
+  animation: drop-in 200ms ease-out both;
+}
