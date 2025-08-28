@@ -11,6 +11,12 @@ async function bootstrap() {
         ? ['error', 'warn', 'log']
         : ['error', 'warn', 'log', 'debug', 'verbose'],
   });
+
+  // Add startup logging
+  console.log('🔧 Environment:', process.env.NODE_ENV || 'development');
+  console.log('🔧 Port:', process.env.PORT || '3001');
+  console.log('🔧 Database URL configured:', !!process.env.DATABASE_URL);
+  console.log('🔧 JWT Secret configured:', !!process.env.JWT_SECRET);
   app.setGlobalPrefix('api');
   // Build a CORS allowlist from env (comma-separated)
   const rawOrigins =
@@ -96,8 +102,20 @@ async function bootstrap() {
   // Bind to 0.0.0.0 so the process is reachable inside PaaS containers (e.g., Railway)
   await app.listen(port, '0.0.0.0');
   console.log(`🚀 API server is running on http://0.0.0.0:${port}/api`);
+  console.log(`🏥 Health check available at: http://0.0.0.0:${port}/api/health`);
+  console.log(`📚 API docs available at: http://0.0.0.0:${port}/api/docs`);
 }
+
 bootstrap().catch((error) => {
-  console.error('Failed to start application:', error);
+  console.error('❌ Failed to start application:', error);
+  console.error('Stack trace:', error.stack);
+  
+  // Log environment info for debugging
+  console.error('Environment debug info:');
+  console.error('- NODE_ENV:', process.env.NODE_ENV);
+  console.error('- PORT:', process.env.PORT);
+  console.error('- DATABASE_URL present:', !!process.env.DATABASE_URL);
+  console.error('- JWT_SECRET present:', !!process.env.JWT_SECRET);
+  
   process.exit(1);
 });

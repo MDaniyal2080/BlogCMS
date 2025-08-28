@@ -2,9 +2,9 @@ node_modules
 npm-debug.log
 dist
 .env*
+!.env.example
 .git
 .gitignore
-README.md
 .eslintrc*
 .prettierrc
 .vscode
@@ -19,6 +19,21 @@ test
 .DS_Store
 Thumbs.db
 *.md
-!README.md
 .github
 .husky
+# Development files
+*.swp
+*.swo
+*~
+.tmp
+.cache
+# OS files
+.DS_Store
+Thumbs.db
+# IDE files
+.vscode/settings.json
+.idea/
+*.sublime-*
+# Build artifacts
+build/
+out/
