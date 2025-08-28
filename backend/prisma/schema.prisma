@@ -11,6 +11,9 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  // Use the direct (unpooled) Neon connection for migrations
+  // Prisma CLI will use this for migrate deploy/push while Prisma Client uses `url`
+  directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
 model User {
