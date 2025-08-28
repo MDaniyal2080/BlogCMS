@@ -1,12 +1,18 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import sharp from 'sharp';
 
 @Injectable()
 export class UploadService {
   private ensureDir(dir: string) {
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  }
+
+  // Lazy-load ESM-only sharp so the app can start under CommonJS output.
+  // Using dynamic import avoids ERR_REQUIRE_ESM crashes at bootstrap.
+  private async loadSharp() {
+    const m: any = await import('sharp');
+    return m.default ?? m;
   }
 
   // Basic verification that the uploaded buffer is a valid image and within safe bounds
@@ -17,9 +23,10 @@ export class UploadService {
     if (!file?.buffer?.length) {
       throw new BadRequestException('Empty upload');
     }
-    let meta: sharp.Metadata;
+    let meta: any;
     try {
-      meta = await sharp(file.buffer).metadata();
+      const Sharp = await this.loadSharp();
+      meta = await Sharp(file.buffer).metadata();
     } catch {
       throw new BadRequestException('Invalid or unsupported image');
     }
@@ -49,9 +56,10 @@ export class UploadService {
 
     await this.assertValidImage(file);
 
-    await sharp(file.buffer)
+    const Sharp = await this.loadSharp();
+    await Sharp(file.buffer)
       .rotate()
-      .resize(1200, 630, { fit: 'cover', position: sharp.strategy.attention })
+      .resize(1200, 630, { fit: 'cover', position: Sharp.strategy.attention })
       .jpeg({ quality: 80 })
       .toFile(outPath);
 
@@ -71,7 +79,8 @@ export class UploadService {
     await this.assertValidImage(file);
 
     // Normalize orientation, cap width, strip metadata and re-encode to JPEG
-    await sharp(file.buffer)
+    const Sharp = await this.loadSharp();
+    await Sharp(file.buffer)
       .rotate()
       .resize({ width: 1920, withoutEnlargement: true })
       .jpeg({ quality: 82 })
@@ -93,8 +102,9 @@ export class UploadService {
     await this.assertValidImage(file);
 
     // Square crop to 256x256 using attention strategy
-    await sharp(file.buffer)
-      .resize(256, 256, { fit: 'cover', position: sharp.strategy.attention })
+    const Sharp = await this.loadSharp();
+    await Sharp(file.buffer)
+      .resize(256, 256, { fit: 'cover', position: Sharp.strategy.attention })
       .jpeg({ quality: 85 })
       .toFile(outPath);
 

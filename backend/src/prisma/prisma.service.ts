@@ -7,7 +7,15 @@ export class PrismaService
   implements OnModuleInit, OnModuleDestroy
 {
   async onModuleInit() {
-    await this.$connect();
+    // Do not block app startup if the DB is temporarily unavailable.
+    // Health endpoint will report the DB status separately.
+    try {
+      await this.$connect();
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error('Prisma initial connect failed (non-fatal):',
+        e instanceof Error ? e.message : e);
+    }
   }
 
   async onModuleDestroy() {

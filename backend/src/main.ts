@@ -37,7 +37,9 @@ async function bootstrap() {
         callback(null, true);
         return;
       }
-      callback(new Error('Not allowed by CORS'), false);
+      // Do not error for disallowed origins; proceed without CORS headers.
+      // This avoids 5xx responses for healthchecks or non-browser clients.
+      callback(null, false);
     },
     credentials: true,
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
