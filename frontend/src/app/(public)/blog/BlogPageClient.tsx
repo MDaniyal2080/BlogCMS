@@ -1,52 +1,65 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { postsAPI, categoriesAPI } from '@/lib/api';
-import type { Post, Category } from '@/types';
 import BlogCard from '@/components/public/BlogCard';
+import { postsAPI } from '@/lib/api';
+import { Post } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { ArrowLeft, X as XIcon, Search as SearchIcon } from 'lucide-react';
 import { useSettings } from '@/components/public/SettingsContext';
-import CategoriesWidget from '@/components/public/CategoriesWidget';
-import PopularPostsWidget from '@/components/public/PopularPostsWidget';
-import TagsWidget from '@/components/public/TagsWidget';
+import dynamic from 'next/dynamic';
+import { Input } from '@/components/ui/input';
+import { X as XIcon } from 'lucide-react';
 
-type PostsQuery = {
-  page?: number;
-  limit?: number;
-  published?: boolean;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
-  withMeta?: boolean;
-  categorySlug?: string;
-  tagSlug?: string;
-  dateFrom?: string;
-  dateTo?: string;
-  q?: string;
-};
+// Code-split non-critical widgets and search
+const SearchBar = dynamic(() => import('@/components/public/SearchBar'), {
+  ssr: false,
+  loading: () => <div className="h-10 w-full max-w-md bg-muted rounded" />,
+});
 
-interface Props {
-  slug: string;
-}
+const CategoriesWidget = dynamic(() => import('@/components/public/CategoriesWidget'), {
+  loading: () => (
+    <div className="space-y-3">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="h-4 bg-muted rounded" />
+      ))}
+    </div>
+  ),
+});
 
-export default function CategoryClient({ slug }: Props) {
-  const router = useRouter();
+const PopularPostsWidget = dynamic(() => import('@/components/public/PopularPostsWidget'), {
+  loading: () => (
+    <div className="space-y-3">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div key={i} className="h-6 bg-muted rounded" />
+      ))}
+    </div>
+  ),
+});
+
+const TagsWidget = dynamic(() => import('@/components/public/TagsWidget'), {
+  loading: () => (
+    <div className="flex flex-wrap gap-2">
+      {Array.from({ length: 10 }).map((_, i) => (
+        <span key={i} className="h-6 w-16 bg-muted rounded" />
+      ))}
+    </div>
+  ),
+});
+
+export default function BlogPageClient() {
   const searchParams = useSearchParams();
-
+  const router = useRouter();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
   const [limit, setLimit] = useState(9);
-  const [categories, setCategories] = useState<Category[]>([]);
-
   const { settings } = useSettings();
   const perPage = Math.max(1, parseInt(settings.posts_per_page || '9', 10) || 9);
-
   const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
   const q = (searchParams.get('q') || '').trim();
+  const category = (searchParams.get('category') || '').trim();
   const tag = (searchParams.get('tag') || '').trim();
   const dateFrom = (searchParams.get('dateFrom') || '').trim();
   const dateTo = (searchParams.get('dateTo') || '').trim();
@@ -66,65 +79,48 @@ export default function CategoryClient({ slug }: Props) {
     if (to) params.set('dateTo', to); else params.delete('dateTo');
     params.delete('page');
     const query = params.toString();
-    router.push(`/blog/category/${slug}${query ? `?${query}` : ''}`);
+    router.push(`/blog${query ? `?${query}` : ''}`);
   };
 
-  const [searchTerm, setSearchTerm] = useState<string>(q);
   useEffect(() => {
-    setSearchTerm(q);
-  }, [q]);
-
-  useEffect(() => {
-    // Load categories (for header info like description/postCount)
-    const run = async () => {
-      try {
-        const res = await categoriesAPI.getAll();
-        setCategories((res.data as Category[]) || []);
-      } catch {
-        // ignore
-      }
-    };
-    run();
-  }, []);
-
-  useEffect(() => {
-    const fetchPosts = async () => {
-      try {
-        setLoading(true);
-        const params: PostsQuery = {
-          page,
-          limit: perPage,
-          published: true,
-          sortBy: 'publishedAt',
-          sortOrder: 'desc',
-          withMeta: true,
-          categorySlug: slug,
-        };
-        if (q) params.q = q;
-        if (tag) params.tagSlug = tag;
-        if (dateFrom) params.dateFrom = dateFrom;
-        if (dateTo) params.dateTo = dateTo;
-
-        const response = await postsAPI.getAll(params);
-        const data = response.data as { items: Post[]; total: number; page: number; limit: number } | Post[];
-        if (Array.isArray(data)) {
-          setPosts(data);
-          setTotal(data.length);
-          setLimit(perPage);
-        } else {
-          setPosts(data.items);
-          setTotal(data.total);
-          setLimit(data.limit);
-        }
-      } catch (error) {
-        console.error('Error fetching posts:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchPosts();
-  }, [page, perPage, q, tag, dateFrom, dateTo, slug]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, perPage, q, category, tag, dateFrom, dateTo]);
+
+  const fetchPosts = async () => {
+    try {
+      setLoading(true);
+      const params: any = {
+        page,
+        limit: perPage,
+        published: true,
+        sortBy: 'publishedAt',
+        sortOrder: 'desc',
+        withMeta: true,
+      };
+      if (q) params.q = q;
+      if (category) params.categorySlug = category;
+      if (tag) params.tagSlug = tag;
+      if (dateFrom) params.dateFrom = dateFrom;
+      if (dateTo) params.dateTo = dateTo;
+
+      const response = await postsAPI.getAll(params);
+      const data = response.data as { items: Post[]; total: number; page: number; limit: number } | Post[];
+      if (Array.isArray(data)) {
+        setPosts(data);
+        setTotal(data.length);
+        setLimit(perPage);
+      } else {
+        setPosts(data.items);
+        setTotal(data.total);
+        setLimit(data.limit);
+      }
+    } catch (error) {
+      console.error('Error fetching posts:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(total / (limit || perPage)) || 1), [total, limit, perPage]);
 
@@ -134,7 +130,7 @@ export default function CategoryClient({ slug }: Props) {
     else params.delete(key);
     params.delete('page'); // reset pagination when filters change
     const query = params.toString();
-    router.push(`/blog/category/${slug}${query ? `?${query}` : ''}`);
+    router.push(`/blog${query ? `?${query}` : ''}`);
   };
 
   const setPageParam = (p: number) => {
@@ -143,67 +139,31 @@ export default function CategoryClient({ slug }: Props) {
     if (newPage <= 1) params.delete('page');
     else params.set('page', String(newPage));
     const query = params.toString();
-    router.push(`/blog/category/${slug}${query ? `?${query}` : ''}`);
+    router.push(`/blog${query ? `?${query}` : ''}`);
   };
 
   const clearAllFilters = () => {
-    router.push(`/blog/category/${slug}`);
+    const params = new URLSearchParams(searchParams?.toString());
+    params.delete('q');
+    params.delete('category');
+    params.delete('tag');
+    params.delete('dateFrom');
+    params.delete('dateTo');
+    params.delete('page');
+    const query = params.toString();
+    router.push(`/blog${query ? `?${query}` : ''}`);
   };
-
-  const onSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const value = (searchTerm || '').trim();
-    updateParam('q', value || undefined);
-  };
-
-  const category = useMemo(() => categories.find((c) => c.slug === slug), [categories, slug]);
-  const categoryName = category?.name || slug;
-  const categoryDescription = category?.description || '';
-  const categoryPostCount = typeof category?.postCount === 'number' ? category!.postCount! : undefined;
 
   return (
     <div className="container mx-auto px-4 py-12">
-      <Link href="/blog">
-        <Button variant="ghost" className="mb-6">
-          <ArrowLeft className="mr-2 h-4 w-4" /> Back to Blog
-        </Button>
-      </Link>
-
-      <header className="mb-8">
-        <h1 className="text-4xl font-bold mb-2">{categoryName}</h1>
-        {categoryDescription && (
-          <p className="text-muted-foreground mb-2">{categoryDescription}</p>
-        )}
-        <p className="text-sm text-muted-foreground">
-          {loading
-            ? 'Loading posts…'
-            : categoryPostCount !== undefined
-              ? `Showing ${total} of ${categoryPostCount} post${categoryPostCount === 1 ? '' : 's'}`
-              : `${total} post${total === 1 ? '' : 's'} found`}
-        </p>
-      </header>
+      <h1 className="text-4xl font-bold mb-8">Blog</h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         {/* Main content */}
         <div className="lg:col-span-3">
-          {/* Search within this category */}
-          <div className="max-w-md mb-6">
-            <form onSubmit={onSearchSubmit} className="relative">
-              <Input
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search in this category..."
-                className="pr-10"
-              />
-              <Button
-                type="submit"
-                size="sm"
-                variant="ghost"
-                className="absolute right-0 top-0 h-full px-3"
-              >
-                <SearchIcon className="h-4 w-4" />
-              </Button>
-            </form>
+          {/* Optional quick search */}
+          <div className="max-w-md mb-8">
+            <SearchBar target="blog" />
           </div>
 
           {/* Date range filters */}
@@ -271,11 +231,11 @@ export default function CategoryClient({ slug }: Props) {
           </div>
 
           {/* Active filters */}
-          {(q || tag || dateFrom || dateTo) && (
+          {(q || category || tag || dateFrom || dateTo) && (
             <div className="flex flex-wrap items-center gap-2 mb-6">
               {q && (
                 <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full border text-sm">
-                  <span>Search: &quot;{q}&quot;</span>
+                  <span>Search: "{q}"</span>
                   <button
                     type="button"
                     aria-label="Clear search filter"
@@ -301,8 +261,21 @@ export default function CategoryClient({ slug }: Props) {
                       params.delete('dateTo');
                       params.delete('page');
                       const query = params.toString();
-                      router.push(`/blog/category/${slug}${query ? `?${query}` : ''}`);
+                      router.push(`/blog${query ? `?${query}` : ''}`);
                     }}
+                  >
+                    <XIcon className="h-4 w-4" />
+                  </button>
+                </span>
+              )}
+              {category && (
+                <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full border text-sm">
+                  <span>Category: {category}</span>
+                  <button
+                    type="button"
+                    aria-label="Clear category filter"
+                    className="hover:text-destructive"
+                    onClick={() => updateParam('category')}
                   >
                     <XIcon className="h-4 w-4" />
                   </button>
@@ -351,7 +324,7 @@ export default function CategoryClient({ slug }: Props) {
                     {Array.from({ length: Math.min(7, totalPages) }).map((_, idx) => {
                       // Build a compact pagination around the current page
                       let start = Math.max(1, page - 3);
-                      const end = Math.min(totalPages, start + 6);
+                      let end = Math.min(totalPages, start + 6);
                       start = Math.max(1, end - 6);
                       const p = start + idx;
                       if (p > end) return null;
@@ -390,14 +363,21 @@ export default function CategoryClient({ slug }: Props) {
                     Clear search
                   </Button>
                 )}
+                {category && (
+                  <Button variant="outline" size="sm" onClick={() => updateParam('category')}>
+                    Clear category
+                  </Button>
+                )}
                 {tag && (
                   <Button variant="outline" size="sm" onClick={() => updateParam('tag')}>
                     Clear tag
                   </Button>
                 )}
-                <Link href={`/blog/category/${slug}`}>
-                  <Button variant="secondary" size="sm">Browse all in {categoryName}</Button>
-                </Link>
+                {category ? (
+                  <Link href={`/blog?category=${encodeURIComponent(category)}`}>
+                    <Button variant="secondary" size="sm">Browse all in {category}</Button>
+                  </Link>
+                ) : null}
                 <Link href="/blog">
                   <Button variant="ghost" size="sm">Browse all posts</Button>
                 </Link>
@@ -410,7 +390,7 @@ export default function CategoryClient({ slug }: Props) {
         <aside className="lg:col-span-1 space-y-10">
           <section>
             <h3 className="text-lg font-semibold mb-3">Categories</h3>
-            <CategoriesWidget limit={12} />
+            <CategoriesWidget limit={12} useBlogQueryLinks />
           </section>
 
           <section>
@@ -420,7 +400,7 @@ export default function CategoryClient({ slug }: Props) {
 
           <section>
             <h3 className="text-lg font-semibold mb-3">Tags</h3>
-            <TagsWidget categorySlugForQuery={slug} />
+            <TagsWidget useBlogQueryLinks />
           </section>
         </aside>
       </div>

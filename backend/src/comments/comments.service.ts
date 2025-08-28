@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  HttpException,
+  HttpStatus,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -20,14 +25,20 @@ export class CommentsService {
     const recentShort = times.filter((t) => now - t <= shortWindow);
     const recentLong = times.filter((t) => now - t <= longWindow);
     if (recentShort.length >= shortLimit || recentLong.length >= longLimit) {
-      throw new HttpException('Too many comments, please slow down.', HttpStatus.TOO_MANY_REQUESTS);
+      throw new HttpException(
+        'Too many comments, please slow down.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
     // record
     const updated = [...recentLong, now];
     this.rateMap.set(ip, updated);
   }
 
-  async listByPost(postId: string, opts?: { limit?: number; offset?: number; includeUnapproved?: boolean }) {
+  async listByPost(
+    postId: string,
+    opts?: { limit?: number; offset?: number; includeUnapproved?: boolean },
+  ) {
     if (!postId) throw new BadRequestException('postId is required');
     const limit = Math.min(Math.max(1, opts?.limit ?? 20), 100);
     const offset = Math.max(0, opts?.offset ?? 0);
@@ -41,7 +52,13 @@ export class CommentsService {
   }
 
   async create(
-    data: { postId: string; authorName?: string | null; authorEmail?: string | null; content: string; honeypot?: string },
+    data: {
+      postId: string;
+      authorName?: string | null;
+      authorEmail?: string | null;
+      content: string;
+      honeypot?: string;
+    },
     ip?: string,
   ) {
     const postId = (data.postId || '').trim();
@@ -66,13 +83,20 @@ export class CommentsService {
   }
 
   // Admin moderation
-  async adminList(opts?: { postId?: string; approved?: boolean; limit?: number; offset?: number }) {
+  async adminList(opts?: {
+    postId?: string;
+    approved?: boolean;
+    limit?: number;
+    offset?: number;
+  }) {
     const limit = Math.min(Math.max(1, opts?.limit ?? 20), 100);
     const offset = Math.max(0, opts?.offset ?? 0);
     return this.prisma.comment.findMany({
       where: {
         ...(opts?.postId ? { postId: opts.postId } : {}),
-        ...(typeof opts?.approved === 'boolean' ? { approved: opts.approved } : {}),
+        ...(typeof opts?.approved === 'boolean'
+          ? { approved: opts.approved }
+          : {}),
       },
       orderBy: { createdAt: 'desc' },
       take: limit,

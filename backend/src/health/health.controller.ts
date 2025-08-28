@@ -13,13 +13,13 @@ export class HealthController {
     try {
       // Test database connection
       await this.prisma.$queryRaw`SELECT 1`;
-      
+
       return {
         status: 'ok',
         timestamp: new Date().toISOString(),
         uptime: process.uptime(),
         environment: process.env.NODE_ENV,
-        database: 'connected'
+        database: 'connected',
       };
     } catch (error) {
       return {
@@ -28,7 +28,7 @@ export class HealthController {
         uptime: process.uptime(),
         environment: process.env.NODE_ENV,
         database: 'disconnected',
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }

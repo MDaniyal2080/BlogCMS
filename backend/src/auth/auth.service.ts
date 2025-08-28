@@ -66,7 +66,18 @@ export class AuthService {
     this.loginAttempts.delete(key);
   }
 
-  async login(loginDto: LoginDto) {
+  async login(loginDto: LoginDto): Promise<{
+    access_token: string;
+    user: {
+      id: string;
+      email: string;
+      username: string;
+      firstName: string | null;
+      lastName: string | null;
+      role: 'ADMIN' | 'EDITOR';
+      avatar: string | null;
+    };
+  }> {
     const key = (loginDto.email || '').toLowerCase();
     const now = Date.now();
     const record = this.loginAttempts.get(key);

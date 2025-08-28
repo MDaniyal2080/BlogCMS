@@ -10,8 +10,8 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 
 export default function TagPage() {
-  const params = useParams();
-  const slug = String((params as any)?.slug || '');
+  const params = useParams<{ slug: string }>();
+  const slug = String(params?.slug || '');
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [tags, setTags] = useState<Tag[]>([]);
@@ -21,14 +21,14 @@ export default function TagPage() {
     const run = async () => {
       try {
         setLoading(true);
-        const [postsRes, tagsRes] = await Promise.all([
+        const [postsRes, tagsData] = await Promise.all([
           postsAPI.getByTag(slug),
-          tagsAPI.getAll().catch(() => ({ data: [] } as any)),
+          tagsAPI.getAll().then(r => r.data).catch(() => [] as Tag[]),
         ]);
         setPosts((postsRes.data as Post[]) || []);
-        setTags(((tagsRes as any).data as Tag[]) || []);
-      } catch (e) {
-        console.error('Error loading tag posts', e);
+        setTags(tagsData || []);
+      } catch (error) {
+        console.error('Error loading tag posts', error);
       } finally {
         setLoading(false);
       }

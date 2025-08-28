@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useState } from 'react';
 import { Menu, X, Search, Facebook, Twitter, Instagram, Linkedin, Github } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -38,7 +39,7 @@ export default function Header() {
           {/* Logo */}
           <Link href="/" className="flex items-center space-x-3">
             {logoUrl ? (
-              <img src={logoUrl} alt={siteName} className="h-8 w-8 rounded" />
+              <Image src={logoUrl} alt={siteName} width={32} height={32} className="h-8 w-8 rounded" priority unoptimized />
             ) : (
               <span className="text-2xl font-bold text-primary">{siteName}</span>
             )}

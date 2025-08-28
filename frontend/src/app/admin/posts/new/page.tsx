@@ -11,6 +11,7 @@ import { postsAPI, categoriesAPI, tagsAPI, uploadAPI } from '@/lib/api';
 import { Category, Tag } from '@/types';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { markdownComponents } from '@/components/public/MarkdownComponents';
 
 const PostEditor = dynamic(() => import('@/components/admin/PostEditor'), {
   ssr: false,
@@ -233,7 +234,7 @@ export default function NewPostPage() {
                   <div className="mt-3">
                     <div className="text-sm font-medium mb-2">Preview</div>
                     <div className="prose prose-sm max-w-none border rounded-md p-3 dark:prose-invert">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                         {markdown || ''}
                       </ReactMarkdown>
                     </div>

@@ -10,6 +10,17 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import * as bcrypt from 'bcrypt';
+import type { Prisma } from '@prisma/client';
+
+type NotificationPrefDTO = {
+  id?: string;
+  userId: string;
+  emailOnComments: boolean;
+  emailOnMentions: boolean;
+  newsletter: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+};
 
 @Injectable()
 export class UsersService {
@@ -24,13 +35,10 @@ export class UsersService {
           ? password
           : await bcrypt.hash(password, 10);
 
-      // Avoid passing enum from DTO directly to Prisma; cast to Prisma $Enums.Role
-      const { role, ...rest } = createUserDto as any;
-      const data: any = { ...rest, password: hashed };
-      if (typeof role !== 'undefined') {
-        // In Prisma v6, the Role enum is a string union; passing string is fine
-        data.role = role;
-      }
+      // Build data without using any
+      const { role, ...rest } = createUserDto;
+      const base = { ...rest, password: hashed };
+      const data = typeof role !== 'undefined' ? { ...base, role } : base;
 
       return await this.prisma.user.create({
         data,
@@ -112,20 +120,29 @@ export class UsersService {
   async update(id: string, updateUserDto: UpdateUserDto) {
     try {
       const { password, ...updateData } = updateUserDto;
-      const data: any = { ...updateData };
+      const patch: Prisma.UserUpdateInput = {};
       if (typeof password === 'string' && password.length) {
-        data.password = password.startsWith('$2')
+        patch.password = password.startsWith('$2')
           ? password
           : await bcrypt.hash(password, 10);
       }
-
-      if (typeof updateData.role !== 'undefined') {
-        data.role = updateData.role as any;
-      }
+      if (typeof updateData.email !== 'undefined')
+        patch.email = updateData.email;
+      if (typeof updateData.username !== 'undefined')
+        patch.username = updateData.username;
+      if (typeof updateData.firstName !== 'undefined')
+        patch.firstName = updateData.firstName;
+      if (typeof updateData.lastName !== 'undefined')
+        patch.lastName = updateData.lastName;
+      if (typeof updateData.avatar !== 'undefined')
+        patch.avatar = updateData.avatar;
+      if (typeof updateData.isActive !== 'undefined')
+        patch.isActive = updateData.isActive;
+      if (typeof updateData.role !== 'undefined') patch.role = updateData.role;
 
       return await this.prisma.user.update({
         where: { id },
-        data,
+        data: patch,
         select: {
           id: true,
           email: true,
@@ -187,11 +204,21 @@ export class UsersService {
     return user;
   }
 
-  async updateMe(userId: string, body: { email?: string; firstName?: string; lastName?: string; bio?: string; avatar?: string }) {
+  async updateMe(
+    userId: string,
+    body: {
+      email?: string;
+      firstName?: string;
+      lastName?: string;
+      bio?: string;
+      avatar?: string;
+    },
+  ) {
     try {
-      const data: any = {};
+      const data: Prisma.UserUpdateInput = {};
       if (typeof body.email !== 'undefined') data.email = body.email;
-      if (typeof body.firstName !== 'undefined') data.firstName = body.firstName;
+      if (typeof body.firstName !== 'undefined')
+        data.firstName = body.firstName;
       if (typeof body.lastName !== 'undefined') data.lastName = body.lastName;
       if (typeof body.bio !== 'undefined') data.bio = body.bio;
       if (typeof body.avatar !== 'undefined') data.avatar = body.avatar;
@@ -214,7 +241,9 @@ export class UsersService {
         },
       });
 
-      await this.logActivity(userId, 'profile.update', { fields: Object.keys(data) });
+      await this.logActivity(userId, 'profile.update', {
+        fields: Object.keys(data),
+      });
       return updated;
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError) {
@@ -229,7 +258,10 @@ export class UsersService {
     }
   }
 
-  async changeMyPassword(userId: string, body: { currentPassword: string; newPassword: string }) {
+  async changeMyPassword(
+    userId: string,
+    body: { currentPassword: string; newPassword: string },
+  ) {
     if (!body.currentPassword || !body.newPassword) {
       throw new BadRequestException('Current and new password are required');
     }
@@ -243,7 +275,10 @@ export class UsersService {
     }
 
     const hashed = await bcrypt.hash(body.newPassword, 10);
-    await this.prisma.user.update({ where: { id: userId }, data: { password: hashed } });
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { password: hashed },
+    });
     await this.logActivity(userId, 'password.change');
     return { message: 'Password updated successfully' };
   }
@@ -254,23 +289,32 @@ export class UsersService {
     });
     if (pref) return pref;
     // Return defaults when not set
-    return {
-      id: undefined,
+    const defaults: NotificationPrefDTO = {
       userId,
       emailOnComments: true,
       emailOnMentions: true,
       newsletter: false,
-      createdAt: undefined,
-      updatedAt: undefined,
-    } as any;
+    };
+    return defaults;
   }
 
-  async updateMyNotifications(userId: string, body: { emailOnComments?: boolean; emailOnMentions?: boolean; newsletter?: boolean }) {
-    const existing = await this.prisma.notificationPreference.findUnique({ where: { userId } });
+  async updateMyNotifications(
+    userId: string,
+    body: {
+      emailOnComments?: boolean;
+      emailOnMentions?: boolean;
+      newsletter?: boolean;
+    },
+  ) {
+    const existing = await this.prisma.notificationPreference.findUnique({
+      where: { userId },
+    });
     const createData = {
       userId,
-      emailOnComments: body.emailOnComments ?? existing?.emailOnComments ?? true,
-      emailOnMentions: body.emailOnMentions ?? existing?.emailOnMentions ?? true,
+      emailOnComments:
+        body.emailOnComments ?? existing?.emailOnComments ?? true,
+      emailOnMentions:
+        body.emailOnMentions ?? existing?.emailOnMentions ?? true,
       newsletter: body.newsletter ?? existing?.newsletter ?? false,
     };
     const pref = await this.prisma.notificationPreference.upsert({
@@ -282,7 +326,9 @@ export class UsersService {
       },
       create: createData,
     });
-    await this.logActivity(userId, 'notifications.update', { pref: createData });
+    await this.logActivity(userId, 'notifications.update', {
+      pref: createData,
+    });
     return pref;
   }
 
@@ -294,12 +340,16 @@ export class UsersService {
     });
   }
 
-  private async logActivity(userId: string, action: string, metadata?: any) {
+  private async logActivity(
+    userId: string,
+    action: string,
+    metadata?: Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput,
+  ) {
     try {
       await this.prisma.activityLog.create({
         data: { userId, action, metadata },
       });
-    } catch (e) {
+    } catch {
       // best-effort; do not throw
     }
   }

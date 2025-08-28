@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
 import BlogCard from '@/components/public/BlogCard';
 import { Button } from '@/components/ui/button';
@@ -149,7 +149,17 @@ export default function HomePage() {
       {/* Categories Widget */}
       <section className="mb-16">
         <h2 className="text-3xl font-bold mb-8">Categories</h2>
-        <CategoriesWidget limit={12} />
+        <Suspense
+          fallback={
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="h-10 bg-muted animate-pulse rounded" />
+              ))}
+            </div>
+          }
+        >
+          <CategoriesWidget limit={12} />
+        </Suspense>
       </section>
 
       {/* Newsletter Section */}

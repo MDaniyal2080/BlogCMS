@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { auth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -170,8 +171,7 @@ export default function AdminLayout({
               onClick={() => setIsSidebarOpen(false)}
             >
               {logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={logoUrl} alt={`${siteName} logo`} className="h-8 w-auto rounded-sm" />
+                <Image src={logoUrl} alt={`${siteName} logo`} width={32} height={32} className="h-8 w-8 rounded-sm" unoptimized />
               ) : null}
               <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text">{siteName} Admin</span>
             </Link>

@@ -9,7 +9,10 @@ import { ConfigService } from '@nestjs/config';
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService, private config: ConfigService) {}
+  constructor(
+    private authService: AuthService,
+    private config: ConfigService,
+  ) {}
 
   @Post('register')
   @ApiOperation({ summary: 'Register a new user' })
@@ -19,20 +22,31 @@ export class AuthController {
 
   @Post('login')
   @ApiOperation({ summary: 'Login user' })
-  async login(@Body() loginDto: LoginDto, @Res({ passthrough: true }) res: Response) {
+  async login(
+    @Body() loginDto: LoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const result = await this.authService.login(loginDto);
     // Optionally set HttpOnly cookie for JWT, controlled by env
-    const cookieEnabled = this.config.get('AUTH_COOKIE_ENABLED') === 'true';
+    const cookieEnabled =
+      this.config.get<string>('AUTH_COOKIE_ENABLED') === 'true';
     if (cookieEnabled) {
-      const name = this.config.get('AUTH_COOKIE_NAME') || 'access_token';
-      const sameSiteRaw = (this.config.get('AUTH_COOKIE_SAMESITE') || 'Lax').toString();
+      const name: string =
+        this.config.get<string>('AUTH_COOKIE_NAME') ?? 'access_token';
+      const sameSiteRaw: string =
+        this.config.get<string>('AUTH_COOKIE_SAMESITE') ?? 'Lax';
       // Normalize to Express types: 'lax' | 'strict' | 'none'
       const sameSite = sameSiteRaw.toLowerCase() as 'lax' | 'strict' | 'none';
-      const secure = this.config.get('AUTH_COOKIE_SECURE') === 'true';
-      const domain = this.config.get('AUTH_COOKIE_DOMAIN');
+      const secure: boolean =
+        this.config.get<string>('AUTH_COOKIE_SECURE') === 'true';
+      const domain: string | undefined =
+        this.config.get<string>('AUTH_COOKIE_DOMAIN') || undefined;
       const remember = !!loginDto.rememberMe;
       const defaultMaxAge = 30 * 24 * 60 * 60 * 1000; // 30d
-      const rememberMax = Number(this.config.get('AUTH_COOKIE_REMEMBER_MAX_AGE_MS') || defaultMaxAge);
+      const rememberMax = Number(
+        this.config.get<string>('AUTH_COOKIE_REMEMBER_MAX_AGE_MS') ??
+          defaultMaxAge,
+      );
       res.cookie(name, result.access_token, {
         httpOnly: true,
         sameSite,
@@ -47,14 +61,19 @@ export class AuthController {
 
   @Post('logout')
   @ApiOperation({ summary: 'Logout (clear auth cookie if enabled)' })
-  async logout(@Res({ passthrough: true }) res: Response) {
-    const cookieEnabled = this.config.get('AUTH_COOKIE_ENABLED') === 'true';
+  logout(@Res({ passthrough: true }) res: Response) {
+    const cookieEnabled =
+      this.config.get<string>('AUTH_COOKIE_ENABLED') === 'true';
     if (cookieEnabled) {
-      const name = this.config.get('AUTH_COOKIE_NAME') || 'access_token';
-      const sameSiteRaw = (this.config.get('AUTH_COOKIE_SAMESITE') || 'Lax').toString();
+      const name: string =
+        this.config.get<string>('AUTH_COOKIE_NAME') ?? 'access_token';
+      const sameSiteRaw: string =
+        this.config.get<string>('AUTH_COOKIE_SAMESITE') ?? 'Lax';
       const sameSite = sameSiteRaw.toLowerCase() as 'lax' | 'strict' | 'none';
-      const secure = this.config.get('AUTH_COOKIE_SECURE') === 'true';
-      const domain = this.config.get('AUTH_COOKIE_DOMAIN');
+      const secure: boolean =
+        this.config.get<string>('AUTH_COOKIE_SECURE') === 'true';
+      const domain: string | undefined =
+        this.config.get<string>('AUTH_COOKIE_DOMAIN') || undefined;
       res.cookie(name, '', {
         httpOnly: true,
         sameSite,

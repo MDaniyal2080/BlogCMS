@@ -1,4 +1,15 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CommentsService } from './comments.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
@@ -29,7 +40,8 @@ export class CommentsController {
   @Post()
   @ApiOperation({ summary: 'Create a comment' })
   create(@Body() body: CreateCommentDto, @Req() req: Request) {
-    const ip = req.headers['x-forwarded-for']?.toString().split(',')[0].trim() || req.ip;
+    const ip =
+      req.headers['x-forwarded-for']?.toString().split(',')[0].trim() || req.ip;
     return this.commentsService.create(body, ip);
   }
 
@@ -47,7 +59,12 @@ export class CommentsController {
     const l = limit ? parseInt(limit, 10) : undefined;
     const o = offset ? parseInt(offset, 10) : undefined;
     const a = typeof approved === 'string' ? approved === 'true' : undefined;
-    return this.commentsService.adminList({ postId, approved: a, limit: l, offset: o });
+    return this.commentsService.adminList({
+      postId,
+      approved: a,
+      limit: l,
+      offset: o,
+    });
   }
 
   @Patch(':id/approve')

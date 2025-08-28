@@ -12,7 +12,6 @@ import { Button } from '@/components/ui/button';
 import {
   Bold,
   Italic,
-  Strikethrough,
   Code as CodeIcon,
   Code2,
   List,
@@ -24,7 +23,6 @@ import {
   Image as ImageIcon,
   Heading1,
   Heading2,
-  Heading3,
   Maximize2,
   Minimize2,
   MoreHorizontal,
@@ -39,19 +37,6 @@ interface PostEditorProps {
 
 // Create a lightweight lowlight instance with common languages
 const lowlight = createLowlight(common);
-
-const CODE_LANGS = [
-  '', // no language
-  'javascript',
-  'typescript',
-  'jsx',
-  'json',
-  'bash',
-  'python',
-  'html',
-  'css',
-  'markdown',
-];
 
 function PostEditorInner({ content, onChange }: PostEditorProps) {
   const editor = useEditor({
@@ -83,8 +68,8 @@ function PostEditorInner({ content, onChange }: PostEditorProps) {
       attributes: {
         class: 'prose prose-sm max-w-none p-4 min-h-[400px] focus:outline-none',
         'aria-label': 'Post content editor',
-        tabIndex: 0,
-        spellCheck: true,
+        tabIndex: '0',
+        spellCheck: 'true',
       },
       handleDOMEvents: {
         mousedown: (view) => {
@@ -170,11 +155,12 @@ function PostEditorInner({ content, onChange }: PostEditorProps) {
       
       window.addEventListener('keydown', onKey);
       setTimeout(() => editor?.commands.focus('end'), 0);
+      const btn = fullscreenBtnRef.current;
       
       return () => {
         document.body.style.overflow = '';
         window.removeEventListener('keydown', onKey);
-        fullscreenBtnRef.current?.focus();
+        btn?.focus();
       };
     }
   }, [fullscreen, editor]);
@@ -183,6 +169,7 @@ function PostEditorInner({ content, onChange }: PostEditorProps) {
   useEffect(() => {
     if (!moreOpen) return;
     
+    const btn = moreBtnRef.current;
     const onDocClick = (e: MouseEvent) => {
       if (!toolbarRef.current?.contains(e.target as Node)) {
         setMoreOpen(false);
@@ -200,7 +187,7 @@ function PostEditorInner({ content, onChange }: PostEditorProps) {
     return () => {
       document.removeEventListener('mousedown', onDocClick);
       document.removeEventListener('keydown', onKey);
-      moreBtnRef.current?.focus();
+      btn?.focus();
     };
   }, [moreOpen]);
 
@@ -453,7 +440,6 @@ function PostEditorInner({ content, onChange }: PostEditorProps) {
               onClick={() => { editor.chain().focus().toggleCode().run(); setMoreOpen(false); }}
               className={editor.isActive('code') ? 'bg-accent' : ''}
               aria-label="Inline code"
-              aria-pressed={editor.isActive('code')}
               role="menuitem"
             >
               <CodeIcon className="h-4 w-4" />
@@ -467,7 +453,6 @@ function PostEditorInner({ content, onChange }: PostEditorProps) {
               onClick={() => { editor.chain().focus().toggleCodeBlock().run(); setMoreOpen(false); }}
               className={editor.isActive('codeBlock') ? 'bg-accent' : ''}
               aria-label="Code block"
-              aria-pressed={editor.isActive('codeBlock')}
               role="menuitem"
             >
               <Code2 className="h-4 w-4" />
@@ -481,7 +466,6 @@ function PostEditorInner({ content, onChange }: PostEditorProps) {
               onClick={() => { editor.chain().focus().toggleHeading({ level: 1 }).run(); setMoreOpen(false); }}
               className={editor.isActive('heading', { level: 1 }) ? 'bg-accent' : ''}
               aria-label="Heading 1"
-              aria-pressed={editor.isActive('heading', { level: 1 })}
               role="menuitem"
             >
               <Heading1 className="h-4 w-4" />
@@ -495,7 +479,6 @@ function PostEditorInner({ content, onChange }: PostEditorProps) {
               onClick={() => { editor.chain().focus().toggleHeading({ level: 2 }).run(); setMoreOpen(false); }}
               className={editor.isActive('heading', { level: 2 }) ? 'bg-accent' : ''}
               aria-label="Heading 2"
-              aria-pressed={editor.isActive('heading', { level: 2 })}
               role="menuitem"
             >
               <Heading2 className="h-4 w-4" />
@@ -509,7 +492,6 @@ function PostEditorInner({ content, onChange }: PostEditorProps) {
               onClick={() => { editor.chain().focus().toggleBulletList().run(); setMoreOpen(false); }}
               className={editor.isActive('bulletList') ? 'bg-accent' : ''}
               aria-label="Bullet list"
-              aria-pressed={editor.isActive('bulletList')}
               role="menuitem"
             >
               <List className="h-4 w-4" />
@@ -523,7 +505,6 @@ function PostEditorInner({ content, onChange }: PostEditorProps) {
               onClick={() => { editor.chain().focus().toggleOrderedList().run(); setMoreOpen(false); }}
               className={editor.isActive('orderedList') ? 'bg-accent' : ''}
               aria-label="Ordered list"
-              aria-pressed={editor.isActive('orderedList')}
               role="menuitem"
             >
               <ListOrdered className="h-4 w-4" />
@@ -537,7 +518,6 @@ function PostEditorInner({ content, onChange }: PostEditorProps) {
               onClick={() => { editor.chain().focus().toggleBlockquote().run(); setMoreOpen(false); }}
               className={editor.isActive('blockquote') ? 'bg-accent' : ''}
               aria-label="Blockquote"
-              aria-pressed={editor.isActive('blockquote')}
               role="menuitem"
             >
               <Quote className="h-4 w-4" />

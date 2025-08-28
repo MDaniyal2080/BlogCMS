@@ -17,6 +17,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { AppRoleEnum } from '../common/types/roles';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import type { AuthUser } from '../common/decorators/current-user.decorator';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdateNotificationsDto } from './dto/update-notifications.dto';
@@ -40,14 +41,14 @@ export class UsersController {
   @Get('me')
   @ApiOperation({ summary: 'Get current user profile' })
   @UseGuards(JwtAuthGuard)
-  getMe(@CurrentUser() user: any) {
+  getMe(@CurrentUser() user: AuthUser) {
     return this.usersService.getMe(user.userId);
   }
 
   @Put('me')
   @ApiOperation({ summary: 'Update current user profile' })
   @UseGuards(JwtAuthGuard)
-  updateMe(@CurrentUser() user: any, @Body() body: UpdateProfileDto) {
+  updateMe(@CurrentUser() user: AuthUser, @Body() body: UpdateProfileDto) {
     return this.usersService.updateMe(user.userId, body);
   }
 
@@ -55,7 +56,7 @@ export class UsersController {
   @ApiOperation({ summary: 'Change current user password' })
   @UseGuards(JwtAuthGuard)
   changeMyPassword(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthUser,
     @Body() body: ChangePasswordDto,
   ) {
     return this.usersService.changeMyPassword(user.userId, body);
@@ -64,7 +65,7 @@ export class UsersController {
   @Get('me/notifications')
   @ApiOperation({ summary: 'Get current user notification preferences' })
   @UseGuards(JwtAuthGuard)
-  getMyNotifications(@CurrentUser() user: any) {
+  getMyNotifications(@CurrentUser() user: AuthUser) {
     return this.usersService.getMyNotifications(user.userId);
   }
 
@@ -72,7 +73,7 @@ export class UsersController {
   @ApiOperation({ summary: 'Update current user notification preferences' })
   @UseGuards(JwtAuthGuard)
   updateMyNotifications(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthUser,
     @Body() body: UpdateNotificationsDto,
   ) {
     return this.usersService.updateMyNotifications(user.userId, body);
@@ -81,7 +82,7 @@ export class UsersController {
   @Get('me/activity')
   @ApiOperation({ summary: 'List recent activity for current user' })
   @UseGuards(JwtAuthGuard)
-  getMyActivity(@CurrentUser() user: any) {
+  getMyActivity(@CurrentUser() user: AuthUser) {
     return this.usersService.getMyActivity(user.userId);
   }
 
@@ -116,5 +117,4 @@ export class UsersController {
   remove(@Param('id') id: string) {
     return this.usersService.remove(id);
   }
-
 }

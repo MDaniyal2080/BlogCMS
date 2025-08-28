@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import CategoryClient from './CategoryClient';
 
-export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
-  const slug = params.slug;
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
   try {
@@ -43,7 +44,11 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   };
 }
 
-export default function CategoryPage({ params }: { params: { slug: string } }) {
-  const { slug } = params;
-  return <CategoryClient slug={slug} />;
+export default async function CategoryPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  return (
+    <Suspense fallback={null}>
+      <CategoryClient slug={slug} />
+    </Suspense>
+  );
 }

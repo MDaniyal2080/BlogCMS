@@ -1,6 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { PostStatus } from '@prisma/client';
+import { PostStatus, Prisma } from '@prisma/client';
+
+import type { CreatePostDto } from './dto/create-post.dto';
+import type { UpdatePostDto } from './dto/update-post.dto';
 
 @Injectable()
 export class PostsService {
@@ -17,7 +20,15 @@ export class PostsService {
     }
   }
 
-  private mapPost(p: any) {
+  private mapPost(
+    p: Prisma.PostGetPayload<{
+      include: {
+        author: true;
+        categories: { include: { category: true } };
+        tags: { include: { tag: true } };
+      };
+    }>,
+  ) {
     const name =
       [p.author?.firstName, p.author?.lastName].filter(Boolean).join(' ') ||
       p.author?.username ||
@@ -46,19 +57,18 @@ export class PostsService {
             updatedAt: p.author.updatedAt,
           }
         : null,
-      categories: (p.categories || []).map((pc: any) => ({
+      categories: (p.categories || []).map((pc) => ({
         id: pc.category.id,
         name: pc.category.name,
         slug: pc.category.slug,
         createdAt: pc.category.createdAt,
         updatedAt: pc.category.updatedAt,
       })),
-      tags: (p.tags || []).map((pt: any) => ({
+      tags: (p.tags || []).map((pt) => ({
         id: pt.tag.id,
         name: pt.tag.name,
         slug: pt.tag.slug,
         createdAt: pt.tag.createdAt,
-        updatedAt: pt.tag.updatedAt,
       })),
       metaTitle: p.metaTitle ?? null,
       metaDescription: p.metaDescription ?? null,
@@ -78,7 +88,7 @@ export class PostsService {
       tags: {
         include: { tag: true },
       },
-    };
+    } as const;
   }
 
   // Minimal HTML sanitizer to mitigate XSS without external deps.
@@ -87,9 +97,18 @@ export class PostsService {
     if (!html) return '';
     let out = String(html);
     // Remove script/style/noscript/iframe/object/embed/link/meta blocks and tags
-    out = out.replace(/<(script|style|noscript|iframe|object|embed|link|meta)\b[\s\S]*?>[\s\S]*?<\/(?:\1)>/gi, '');
-    out = out.replace(/<(script|style|noscript|iframe|object|embed|link|meta)\b[\s\S]*?\/>/gi, '');
-    out = out.replace(/<\/?(script|style|noscript|iframe|object|embed|link|meta)\b[\s\S]*?>/gi, '');
+    out = out.replace(
+      /<(script|style|noscript|iframe|object|embed|link|meta)\b[\s\S]*?>[\s\S]*?<\/(?:\1)>/gi,
+      '',
+    );
+    out = out.replace(
+      /<(script|style|noscript|iframe|object|embed|link|meta)\b[\s\S]*?\/>/gi,
+      '',
+    );
+    out = out.replace(
+      /<\/?(script|style|noscript|iframe|object|embed|link|meta)\b[\s\S]*?>/gi,
+      '',
+    );
     // Remove on*="..." and on*='...'
     out = out.replace(/\son[a-z]+\s*=\s*"[^"]*"/gi, '');
     out = out.replace(/\son[a-z]+\s*=\s*'[^']*'/gi, '');
@@ -98,55 +117,74 @@ export class PostsService {
     out = out.replace(/\s(href|src)\s*=\s*"\s*javascript:[^"]*"/gi, '');
     out = out.replace(/\s(href|src)\s*=\s*'\s*javascript:[^']*'/gi, '');
     out = out.replace(/\s(href|src)\s*=\s*javascript:[^\s>]+/gi, '');
-    out = out.replace(/\ssrc\s*=\s*"\s*data:(?!image\/(?:png|jpe?g|gif|webp|avif))[^"]*"/gi, '');
-    out = out.replace(/\ssrc\s*=\s*'\s*data:(?!image\/(?:png|jpe?g|gif|webp|avif))[^']*'/gi, '');
+    out = out.replace(
+      /\ssrc\s*=\s*"\s*data:(?!image\/(?:png|jpe?g|gif|webp|avif))[^"]*"/gi,
+      '',
+    );
+    out = out.replace(
+      /\ssrc\s*=\s*'\s*data:(?!image\/(?:png|jpe?g|gif|webp|avif))[^']*'/gi,
+      '',
+    );
     return out;
   }
 
   async list(params: {
-    page?: number;
-    limit?: number;
+    page?: number | string;
+    limit?: number | string;
     published?: string | boolean | number;
     status?: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
     sortBy?: 'createdAt' | 'updatedAt' | 'publishedAt' | 'title' | 'viewCount';
-    sortOrder?: 'asc' | 'desc';
+    sortOrder?: string;
     categoryId?: string;
     categorySlug?: string;
     tagSlug?: string;
     dateFrom?: string;
     dateTo?: string;
     q?: string;
-    withMeta?: any;
+    withMeta?: unknown;
     featured?: string | boolean | number;
     excludeIds?: string | string[];
   }) {
-    const page = Math.max(1, Number((params as any).page ?? 1));
-    const limit = Math.min(Math.max(1, Number((params as any).limit ?? 10)), 100);
+    const page = Math.max(1, Number(params.page ?? 1));
+    const limit = Math.min(Math.max(1, Number(params.limit ?? 10)), 100);
     const skip = (page - 1) * limit;
 
-    const sortBy = ((params as any).sortBy as string) || 'createdAt';
-    const sortOrder: 'asc' | 'desc' = String((params as any).sortOrder || 'desc').toLowerCase() === 'asc' ? 'asc' : 'desc';
-    const statusParam = (params as any).status as 'DRAFT' | 'PUBLISHED' | 'ARCHIVED' | undefined;
-    const publishedParam = (params as any).published; // backward-compat
-    const published = publishedParam === true || publishedParam === 'true' || publishedParam === 1 || publishedParam === '1';
-    const categoryId = (params as any).categoryId as string | undefined;
-    const categorySlug = (params as any).categorySlug as string | undefined;
-    const tagSlug = (params as any).tagSlug as string | undefined;
-    const dateFrom = (params as any).dateFrom as string | undefined;
-    const dateTo = (params as any).dateTo as string | undefined;
-    const q = ((params as any).q || '').toString().trim();
-    const withMeta = (params as any).withMeta;
-    const featuredParam = (params as any).featured;
+    const sortBy =
+      (params.sortBy as
+        | 'createdAt'
+        | 'updatedAt'
+        | 'publishedAt'
+        | 'title'
+        | 'viewCount') || 'createdAt';
+    const sortOrder: 'asc' | 'desc' =
+      String(params.sortOrder ?? 'desc').toLowerCase() === 'asc'
+        ? 'asc'
+        : 'desc';
+    const statusParam = params.status;
+    const publishedParam = params.published; // backward-compat
+    const published =
+      publishedParam === true ||
+      publishedParam === 'true' ||
+      publishedParam === 1 ||
+      publishedParam === '1';
+    const categoryId = params.categoryId;
+    const categorySlug = params.categorySlug;
+    const tagSlug = params.tagSlug;
+    const dateFrom = params.dateFrom;
+    const dateTo = params.dateTo;
+    const q = (params.q || '').toString().trim();
+    const withMeta = Boolean(params.withMeta);
+    const featuredParam = params.featured;
     const featured =
       featuredParam === true ||
       featuredParam === 'true' ||
       featuredParam === 1 ||
       featuredParam === '1';
 
-    const excludeIdsRaw = (params as any).excludeIds as string | string[] | undefined;
+    const excludeIdsRaw = params.excludeIds;
     let excludeIds: string[] | undefined = undefined;
     if (Array.isArray(excludeIdsRaw)) {
-      excludeIds = (excludeIdsRaw as string[]).filter(Boolean);
+      excludeIds = excludeIdsRaw.filter(Boolean);
     } else if (typeof excludeIdsRaw === 'string') {
       excludeIds = excludeIdsRaw
         .split(',')
@@ -154,10 +192,10 @@ export class PostsService {
         .filter((s) => !!s);
     }
 
-    const where: any = {};
+    const where: Prisma.PostWhereInput = {};
 
     if (statusParam) {
-      where.status = statusParam as any;
+      where.status = statusParam as PostStatus;
     } else if (published) {
       // legacy published filter: only published and already visible
       where.status = PostStatus.PUBLISHED;
@@ -177,7 +215,7 @@ export class PostsService {
 
     if (dateFrom || dateTo) {
       where.publishedAt = {
-        ...(where.publishedAt || {}),
+        ...(where.publishedAt as Prisma.DateTimeNullableFilter | undefined),
         ...(dateFrom ? { gte: new Date(dateFrom) } : {}),
         ...(dateTo ? { lte: new Date(dateTo) } : {}),
       };
@@ -200,16 +238,34 @@ export class PostsService {
       where.id = { notIn: excludeIds };
     }
 
-    const orderBy: any = {};
-    if (['createdAt', 'updatedAt', 'publishedAt', 'title', 'viewCount'].includes(sortBy)) {
-      orderBy[sortBy] = sortOrder;
-    } else {
-      orderBy['createdAt'] = 'desc';
+    let orderBy: Prisma.PostOrderByWithRelationInput;
+    switch (sortBy) {
+      case 'updatedAt':
+        orderBy = { updatedAt: sortOrder };
+        break;
+      case 'publishedAt':
+        orderBy = { publishedAt: sortOrder };
+        break;
+      case 'title':
+        orderBy = { title: sortOrder };
+        break;
+      case 'viewCount':
+        orderBy = { viewCount: sortOrder };
+        break;
+      case 'createdAt':
+      default:
+        orderBy = { createdAt: sortOrder };
     }
 
     const [total, posts] = await Promise.all([
       this.prisma.post.count({ where }),
-      this.prisma.post.findMany({ where, orderBy, skip, take: limit, include: this.includeForPost() }),
+      this.prisma.post.findMany({
+        where,
+        orderBy,
+        skip,
+        take: limit,
+        include: this.includeForPost(),
+      }),
     ]);
     const items = posts.map((p) => this.mapPost(p));
     if (withMeta) return { items, total, page, limit };
@@ -249,19 +305,23 @@ export class PostsService {
     });
     if (!base) throw new NotFoundException('Post not found');
 
-    const categoryIds = (base.categories || []).map((c: any) => c.categoryId);
-    const tagIds = (base.tags || []).map((t: any) => t.tagId);
+    const categoryIds = (base.categories || []).map((c) => c.categoryId);
+    const tagIds = (base.tags || []).map((t) => t.tagId);
 
-    const where: any = {
+    const where: Prisma.PostWhereInput = {
       status: PostStatus.PUBLISHED,
       publishedAt: { lte: new Date() },
       id: { not: id },
     };
 
     if (categoryIds.length || tagIds.length) {
-      where.OR = [] as any[];
-      if (categoryIds.length) where.OR.push({ categories: { some: { categoryId: { in: categoryIds } } } });
-      if (tagIds.length) where.OR.push({ tags: { some: { tagId: { in: tagIds } } } });
+      where.OR = [] as Prisma.PostWhereInput[];
+      if (categoryIds.length)
+        where.OR.push({
+          categories: { some: { categoryId: { in: categoryIds } } },
+        });
+      if (tagIds.length)
+        where.OR.push({ tags: { some: { tagId: { in: tagIds } } } });
     }
 
     const related = await this.prisma.post.findMany({
@@ -286,7 +346,7 @@ export class PostsService {
         where: {
           status: PostStatus.PUBLISHED,
           publishedAt: { lt: pivot, lte: new Date() },
-        } as any,
+        },
         orderBy: { publishedAt: 'desc' },
         include: this.includeForPost(),
       }),
@@ -294,7 +354,7 @@ export class PostsService {
         where: {
           status: PostStatus.PUBLISHED,
           publishedAt: { gt: pivot, lte: new Date() },
-        } as any,
+        },
         orderBy: { publishedAt: 'asc' },
         include: this.includeForPost(),
       }),
@@ -309,9 +369,9 @@ export class PostsService {
   async getScheduled(opts?: { limit?: number; from?: string; to?: string }) {
     const limit = Math.min(Math.max(1, opts?.limit ?? 20), 100);
     const now = new Date();
-    const publishedAt: any = { gt: now };
-    if (opts?.from) publishedAt.gte = new Date(opts.from);
-    if (opts?.to) publishedAt.lte = new Date(opts.to);
+    let publishedAt: Prisma.DateTimeNullableFilter = { gt: now };
+    if (opts?.from) publishedAt = { ...publishedAt, gte: new Date(opts.from) };
+    if (opts?.to) publishedAt = { ...publishedAt, lte: new Date(opts.to) };
 
     const posts = await this.prisma.post.findMany({
       where: {
@@ -387,11 +447,14 @@ export class PostsService {
       .toLowerCase()
       .trim()
       .replace(/\s+/g, '-')
-      .replace(/[^\w\-]+/g, '')
-      .replace(/\-\-+/g, '-');
+      .replace(/[^\w-]+/g, '')
+      .replace(/--+/g, '-');
   }
 
-  private async ensureUniqueSlug(base: string, excludeId?: string): Promise<string> {
+  private async ensureUniqueSlug(
+    base: string,
+    excludeId?: string,
+  ): Promise<string> {
     let slug = base;
     let i = 1;
     // Try base, then base-1, base-2, ... until available
@@ -408,7 +471,7 @@ export class PostsService {
     }
   }
 
-  async create(data: any) {
+  async create(data: CreatePostDto & { authorId: string }) {
     const {
       title,
       excerpt,
@@ -446,21 +509,31 @@ export class PostsService {
         featured: Boolean(data.featured) || false,
         publishedAt:
           status === PostStatus.PUBLISHED
-            ? (data.publishedAt ? new Date(data.publishedAt) : now)
+            ? data.publishedAt
+              ? new Date(data.publishedAt)
+              : now
             : null,
-        authorId,
+        author: { connect: { id: authorId } },
         metaTitle: metaTitle ?? null,
         metaDescription: metaDescription ?? null,
         metaKeywords: metaKeywords ?? null,
         categories:
           Array.isArray(categoryIds) && categoryIds.length
-            ? { create: categoryIds.map((cid: string) => ({ categoryId: cid })) }
+            ? {
+                create: categoryIds.map((cid: string) => ({
+                  category: { connect: { id: cid } },
+                })),
+              }
             : categoryId
-              ? { create: [{ categoryId }] }
+              ? { create: [{ category: { connect: { id: categoryId } } }] }
               : undefined,
         tags:
           Array.isArray(tagIds) && tagIds.length
-            ? { create: tagIds.map((tagId: string) => ({ tagId })) }
+            ? {
+                create: tagIds.map((tagId: string) => ({
+                  tag: { connect: { id: tagId } },
+                })),
+              }
             : undefined,
       },
       include: this.includeForPost(),
@@ -468,7 +541,7 @@ export class PostsService {
     return this.mapPost(created);
   }
 
-  async update(id: string, data: any) {
+  async update(id: string, data: UpdatePostDto) {
     const {
       title,
       excerpt,
@@ -485,13 +558,16 @@ export class PostsService {
       featured,
     } = data;
 
-    const explicitStatus: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED' | undefined = data.status;
+    const explicitStatus: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED' | undefined =
+      data.status;
     const statusFromBool: PostStatus | undefined =
       typeof published === 'boolean'
-        ? (published ? PostStatus.PUBLISHED : PostStatus.DRAFT)
+        ? published
+          ? PostStatus.PUBLISHED
+          : PostStatus.DRAFT
         : undefined;
     const status: PostStatus | undefined = explicitStatus
-      ? (explicitStatus as any as PostStatus)
+      ? (explicitStatus as PostStatus)
       : statusFromBool;
 
     let slugUpdate: string | undefined = undefined;
@@ -508,7 +584,8 @@ export class PostsService {
         title,
         slug: slugUpdate,
         excerpt,
-        content: typeof content === 'string' ? this.sanitizeHtml(content) : content,
+        content:
+          typeof content === 'string' ? this.sanitizeHtml(content) : content,
         markdown: data.markdown,
         coverImage: featuredImage,
         status,
@@ -516,7 +593,9 @@ export class PostsService {
         publishedAt:
           typeof status !== 'undefined'
             ? status === PostStatus.PUBLISHED
-              ? (data.publishedAt ? new Date(data.publishedAt) : new Date())
+              ? data.publishedAt
+                ? new Date(data.publishedAt)
+                : new Date()
               : status === PostStatus.DRAFT
                 ? null
                 : undefined
@@ -529,18 +608,24 @@ export class PostsService {
         categories: Array.isArray(categoryIds)
           ? {
               deleteMany: {},
-              create: categoryIds.map((cid: string) => ({ categoryId: cid })),
+              create: categoryIds.map((cid: string) => ({
+                category: { connect: { id: cid } },
+              })),
             }
           : typeof categoryId !== 'undefined'
             ? {
                 deleteMany: {},
-                create: categoryId ? [{ categoryId }] : [],
+                create: categoryId
+                  ? [{ category: { connect: { id: categoryId } } }]
+                  : [],
               }
             : undefined,
         tags: Array.isArray(tagIds)
           ? {
               deleteMany: {},
-              create: tagIds.map((tagId: string) => ({ tagId })),
+              create: tagIds.map((tagId: string) => ({
+                tag: { connect: { id: tagId } },
+              })),
             }
           : undefined,
       },
@@ -549,21 +634,33 @@ export class PostsService {
     return this.mapPost(updated);
   }
 
-  async bulkUpdateStatus(ids: string[], status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED', publishedAt?: string) {
+  async bulkUpdateStatus(
+    ids: string[],
+    status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED',
+    publishedAt?: string,
+  ) {
     if (!Array.isArray(ids) || ids.length === 0) return { count: 0 };
-    const data: any = { status };
+    const data: {
+      status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+      publishedAt?: Date | null;
+    } = { status };
     if (status === 'PUBLISHED') {
       data.publishedAt = publishedAt ? new Date(publishedAt) : new Date();
     } else if (status === 'DRAFT') {
       data.publishedAt = null;
     }
-    const res = await this.prisma.post.updateMany({ where: { id: { in: ids } }, data });
+    const res = await this.prisma.post.updateMany({
+      where: { id: { in: ids } },
+      data,
+    });
     return { count: res.count };
   }
 
   async bulkDelete(ids: string[]) {
     if (!Array.isArray(ids) || ids.length === 0) return { count: 0 };
-    const res = await this.prisma.post.deleteMany({ where: { id: { in: ids } } });
+    const res = await this.prisma.post.deleteMany({
+      where: { id: { in: ids } },
+    });
     return { count: res.count };
   }
 
@@ -597,17 +694,25 @@ export class PostsService {
         status: PostStatus.DRAFT,
         featured: Boolean(original.featured) || false,
         publishedAt: null,
-        authorId: authorId || original.authorId,
+        author: { connect: { id: authorId || original.authorId } },
         metaTitle: original.metaTitle ?? null,
         metaDescription: original.metaDescription ?? null,
         metaKeywords: original.metaKeywords ?? null,
         categories:
           Array.isArray(original.categories) && original.categories.length
-            ? { create: original.categories.map((c: any) => ({ categoryId: c.categoryId })) }
+            ? {
+                create: original.categories.map((c) => ({
+                  category: { connect: { id: c.categoryId } },
+                })),
+              }
             : undefined,
         tags:
           Array.isArray(original.tags) && original.tags.length
-            ? { create: original.tags.map((t: any) => ({ tagId: t.tagId })) }
+            ? {
+                create: original.tags.map((t) => ({
+                  tag: { connect: { id: t.tagId } },
+                })),
+              }
             : undefined,
       },
       include: this.includeForPost(),
@@ -642,12 +747,16 @@ export class PostsService {
       // Content performance aggregates (published and visible posts only)
       this.prisma.postCategory.groupBy({
         by: ['categoryId'],
-        where: { post: { status: PostStatus.PUBLISHED, publishedAt: { lte: now } } },
+        where: {
+          post: { status: PostStatus.PUBLISHED, publishedAt: { lte: now } },
+        },
         _count: { _all: true },
       }),
       this.prisma.postTag.groupBy({
         by: ['tagId'],
-        where: { post: { status: PostStatus.PUBLISHED, publishedAt: { lte: now } } },
+        where: {
+          post: { status: PostStatus.PUBLISHED, publishedAt: { lte: now } },
+        },
         _count: { _all: true },
       }),
     ]);
@@ -674,7 +783,9 @@ export class PostsService {
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       if (seriesMap.has(key)) seriesMap.set(key, (seriesMap.get(key) || 0) + 1);
     });
-    const postsOverTime = Array.from(seriesMap.entries()).map(([month, count]) => ({ month, count }));
+    const postsOverTime = Array.from(seriesMap.entries()).map(
+      ([month, count]) => ({ month, count }),
+    );
 
     const popular = await this.prisma.post.findMany({
       where: { status: PostStatus.PUBLISHED },
@@ -684,29 +795,45 @@ export class PostsService {
     });
 
     // Resolve category/tag names and prepare top-10 lists
-    const catIds = catAgg.map((c: any) => c.categoryId);
-    const tagIds = tagAgg.map((t: any) => t.tagId);
+    const catIds = catAgg.map((c) => c.categoryId);
+    const tagIds = tagAgg.map((t) => t.tagId);
     const [catDetails, tagDetails] = await Promise.all([
       catIds.length
-        ? this.prisma.category.findMany({ where: { id: { in: catIds } }, select: { id: true, name: true, slug: true } })
-        : Promise.resolve([]),
+        ? this.prisma.category.findMany({
+            where: { id: { in: catIds } },
+            select: { id: true, name: true, slug: true },
+          })
+        : Promise.resolve<{ id: string; name: string; slug: string }[]>([]),
       tagIds.length
-        ? this.prisma.tag.findMany({ where: { id: { in: tagIds } }, select: { id: true, name: true, slug: true } })
-        : Promise.resolve([]),
+        ? this.prisma.tag.findMany({
+            where: { id: { in: tagIds } },
+            select: { id: true, name: true, slug: true },
+          })
+        : Promise.resolve<{ id: string; name: string; slug: string }[]>([]),
     ]);
     const catMap = new Map<string, { id: string; name: string; slug: string }>(
-      (catDetails as any[]).map((c: any) => [c.id as string, c as { id: string; name: string; slug: string }])
+      catDetails.map((c) => [c.id, c] as const),
     );
     const tagMap = new Map<string, { id: string; name: string; slug: string }>(
-      (tagDetails as any[]).map((t: any) => [t.id as string, t as { id: string; name: string; slug: string }])
+      tagDetails.map((t) => [t.id, t] as const),
     );
     const categoriesTop = catAgg
-      .map((c: any) => ({ id: c.categoryId, name: catMap.get(c.categoryId)?.name || 'Unknown', slug: catMap.get(c.categoryId)?.slug || '', count: c._count._all }))
-      .sort((a: any, b: any) => b.count - a.count)
+      .map((c) => ({
+        id: c.categoryId,
+        name: catMap.get(c.categoryId)?.name || 'Unknown',
+        slug: catMap.get(c.categoryId)?.slug || '',
+        count: c._count._all,
+      }))
+      .sort((a, b) => b.count - a.count)
       .slice(0, 10);
     const tagsTop = tagAgg
-      .map((t: any) => ({ id: t.tagId, name: tagMap.get(t.tagId)?.name || 'Unknown', slug: tagMap.get(t.tagId)?.slug || '', count: t._count._all }))
-      .sort((a: any, b: any) => b.count - a.count)
+      .map((t) => ({
+        id: t.tagId,
+        name: tagMap.get(t.tagId)?.name || 'Unknown',
+        slug: tagMap.get(t.tagId)?.slug || '',
+        count: t._count._all,
+      }))
+      .sort((a, b) => b.count - a.count)
       .slice(0, 10);
 
     return {
@@ -721,7 +848,10 @@ export class PostsService {
       recent: recent.map((p) => this.mapPost(p)),
       series: {
         postsOverTime,
-        popularPosts: popular.map((p) => ({ title: p.title, views: p.viewCount })),
+        popularPosts: popular.map((p) => ({
+          title: p.title,
+          views: p.viewCount,
+        })),
       },
       content: {
         categoriesTop,

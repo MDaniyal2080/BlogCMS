@@ -15,62 +15,87 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { createLowlight, common } from 'lowlight';
 import { sanitizeHtml } from '@/lib/sanitize';
+import type { Components } from 'react-markdown';
 
 // Lowlight instance with common grammars
 const lowlight = createLowlight(common);
 
+// Minimal HAST types for rendering highlighted code
+type HastText = { type: 'text'; value: string };
+type HastElement = {
+  type: 'element';
+  tagName: string;
+  properties?: Record<string, unknown>;
+  children?: HastNode[];
+};
+type HastNode = HastText | HastElement;
+
+interface LowlightLike {
+  highlight: (lang: string, code: string) => { children: HastNode[] };
+  highlightAuto?: (code: string) => { children: HastNode[] };
+}
+
 // Render lowlight HAST nodes as React elements
-function renderHast(node: any, key?: React.Key): React.ReactNode {
+function renderHast(node: HastNode | HastNode[] | null | undefined, key?: React.Key): React.ReactNode {
   if (!node) return null;
+  if (Array.isArray(node)) return node.map((n: HastNode, i: number) => renderHast(n, i));
   if (node.type === 'text') return node.value;
   if (node.type === 'element') {
-    const props: any = { key, ...node.properties };
-    const children = (node.children || []).map((c: any, i: number) => renderHast(c, i));
+    const props: React.Attributes & Record<string, unknown> = { key, ...(node.properties || {}) };
+    const children = (node.children || []).map((c: HastNode, i: number) => renderHast(c, i));
     return React.createElement(node.tagName, props, children);
   }
-  if (Array.isArray(node)) return node.map((n: any, i: number) => renderHast(n, i));
   return null;
 }
 
-function CodeRenderer({ inline, className, children }: any) {
-  const code = String(children ?? '').replace(/\n$/, '');
-  if (inline) {
-    return <code className={className}>{children}</code>;
-  }
-  const match = /language-(\w+)/.exec(className || '');
-  try {
-    const tree = match?.[1]
-      ? lowlight.highlight(match[1], code).children
-      : (lowlight as any).highlightAuto
-        ? (lowlight as any).highlightAuto(code).children
-        : [];
+// ReactMarkdown custom components (typed for v9)
+const markdownComponents: Components = {
+  code(props) {
+    const { className, children, ...rest } = props as any;
+    const inline = (props as any).inline as boolean | undefined;
+    const code = String(children ?? '').replace(/\n$/, '');
+    if (inline) {
+      return (
+        <code className={className} {...(rest as any)}>
+          {children}
+        </code>
+      );
+    }
+    const match = /language-(\w+)/.exec(className || '');
+    try {
+      const ll = lowlight as unknown as LowlightLike;
+      const tree = match?.[1]
+        ? ll.highlight(match[1], code).children
+        : ll.highlightAuto
+          ? ll.highlightAuto(code).children
+          : [];
+      return (
+        <pre className="rounded-lg bg-muted p-4 overflow-x-auto">
+          <code className={className}>{renderHast(tree)}</code>
+        </pre>
+      );
+    } catch {
+      return (
+        <pre className="rounded-lg bg-muted p-4 overflow-x-auto">
+          <code className={className}>{code}</code>
+        </pre>
+      );
+    }
+  },
+  a({ href, children, ...props }) {
+    const isExternal = typeof href === 'string' && /^https?:\/\//i.test(href);
     return (
-      <pre className="rounded-lg bg-muted p-4 overflow-x-auto">
-        <code className={className}>{renderHast(tree)}</code>
-      </pre>
+      <a
+        href={href as string}
+        {...props}
+        rel={isExternal ? 'nofollow noopener noreferrer' : (props as React.AnchorHTMLAttributes<HTMLAnchorElement>).rel}
+        target={isExternal ? '_blank' : (props as React.AnchorHTMLAttributes<HTMLAnchorElement>).target}
+      >
+        {children}
+      </a>
     );
-  } catch (e) {
-    return (
-      <pre className="rounded-lg bg-muted p-4 overflow-x-auto">
-        <code className={className}>{code}</code>
-      </pre>
-    );
-  }
-}
-
-function AnchorRenderer({ href, children, ...props }: any) {
-  const isExternal = typeof href === 'string' && /^https?:\/\//i.test(href);
-  return (
-    <a
-      href={href}
-      {...props}
-      rel={isExternal ? 'nofollow noopener noreferrer' : props.rel}
-      target={isExternal ? '_blank' : props.target}
-    >
-      {children}
-    </a>
-  );
-}
+  },
+};
 
 export default function SinglePostClient({ slug, initialPost }: { slug: string; initialPost?: Post }) {
   const [post, setPost] = useState<Post | null>(initialPost || null);
@@ -90,6 +115,16 @@ export default function SinglePostClient({ slug, initialPost }: { slug: string; 
     })
   ).current;
 
+  // Build share URL on the client after mount to avoid SSR hydration mismatches
+  const [shareUrl, setShareUrl] = useState('');
+  useEffect(() => {
+    if (post?.slug && typeof window !== 'undefined') {
+      setShareUrl(`${window.location.origin}/blog/${post.slug}`);
+    } else {
+      setShareUrl('');
+    }
+  }, [post?.slug]);
+
   useEffect(() => {
     if (initialPost) {
       // We already have the post from the server; skip client fetch.
@@ -103,7 +138,6 @@ export default function SinglePostClient({ slug, initialPost }: { slug: string; 
         const response = await postsAPI.getBySlug(slug);
         if (!cancelled) setPost(response.data);
       } catch (error) {
-        // eslint-disable-next-line no-console
         console.error('Error fetching post:', error);
       } finally {
         if (!cancelled) setLoading(false);
@@ -135,12 +169,12 @@ export default function SinglePostClient({ slug, initialPost }: { slug: string; 
       // Load related posts and prev/next concurrently
       try {
         const [rel, pn] = await Promise.all([
-          postsAPI.related(post.id, { limit: 3 }).catch(() => ({ data: [] } as any)),
-          postsAPI.prevNext(post.id).catch(() => ({ data: null } as any)),
+          postsAPI.related(post.id, { limit: 3 }).then(r => r.data).catch(() => [] as Post[]),
+          postsAPI.prevNext(post.id).then(r => r.data).catch(() => null as { prev: Post | null; next: Post | null } | null),
         ]);
-        setRelated((rel as any).data || []);
-        setPrevNext((pn as any).data || null);
-      } catch (e) {
+        setRelated(rel);
+        setPrevNext(pn);
+      } catch {
         // ignore
       }
     };
@@ -172,16 +206,6 @@ export default function SinglePostClient({ slug, initialPost }: { slug: string; 
       </div>
     );
   }
-
-  // Build share URL on the client after mount to avoid SSR hydration mismatches
-  const [shareUrl, setShareUrl] = useState('');
-  useEffect(() => {
-    if (post?.slug && typeof window !== 'undefined') {
-      setShareUrl(`${window.location.origin}/blog/${post.slug}`);
-    } else {
-      setShareUrl('');
-    }
-  }, [post?.slug]);
 
   return (
     <article className="container mx-auto px-4 py-12">
@@ -291,7 +315,7 @@ export default function SinglePostClient({ slug, initialPost }: { slug: string; 
 
         {post.markdown && post.markdown.trim() ? (
           <div className="prose prose-lg max-w-none dark:prose-invert">
-            <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ code: CodeRenderer, a: AnchorRenderer }}>
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
               {post.markdown}
             </ReactMarkdown>
           </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { settingsAPI, uploadAPI } from '@/lib/api';
 import { Setting } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -455,10 +456,12 @@ export default function SettingsPage() {
                 <p className="text-xs text-muted-foreground mt-1">Recommended: transparent PNG/SVG</p>
               </div>
               {formData.site_logo_url && (
-                <img
+                <Image
                   src={resolveUrl(formData.site_logo_url)}
                   alt="Logo preview"
-                  className="h-12 w-12 rounded border"
+                  width={48}
+                  height={48}
+                  className="h-12 w-12 rounded border object-contain"
                 />
               )}
               {logoUploading && <span className="text-sm">Uploading...</span>}
@@ -474,10 +477,12 @@ export default function SettingsPage() {
                 )}
               </div>
               {formData.favicon_url && (
-                <img
+                <Image
                   src={resolveUrl(formData.favicon_url)}
                   alt="Favicon preview"
-                  className="h-8 w-8 rounded border"
+                  width={32}
+                  height={32}
+                  className="h-8 w-8 rounded border object-contain"
                 />
               )}
               {faviconUploading && <span className="text-sm">Uploading...</span>}

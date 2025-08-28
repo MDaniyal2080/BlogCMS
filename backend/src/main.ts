@@ -1,13 +1,15 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
+import type { Request, Response, NextFunction } from 'express';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
-    logger: process.env.NODE_ENV === 'production' 
-      ? ['error', 'warn', 'log'] 
-      : ['error', 'warn', 'log', 'debug', 'verbose'],
+    logger:
+      process.env.NODE_ENV === 'production'
+        ? ['error', 'warn', 'log']
+        : ['error', 'warn', 'log', 'debug', 'verbose'],
   });
   app.setGlobalPrefix('api');
   // Build a CORS allowlist from env (comma-separated)
@@ -23,24 +25,44 @@ async function bootstrap() {
     .filter(Boolean);
 
   app.enableCors({
-    origin: (origin, callback) => {
-      if (!origin) return callback(null, true); // non-browser or same-origin
-      if (allowedOrigins.includes(origin)) return callback(null, true);
-      return callback(new Error('Not allowed by CORS'), false);
+    origin: (
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void,
+    ) => {
+      if (!origin) {
+        callback(null, true); // non-browser or same-origin
+        return;
+      }
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error('Not allowed by CORS'), false);
     },
     credentials: true,
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-CSRF-Token'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-Requested-With',
+      'X-CSRF-Token',
+    ],
   });
 
   // Minimal security headers without external deps (Helmet optional later)
-  app.use((req: any, res: any, next: any) => {
+  app.use((req: Request, res: Response, next: NextFunction) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-    res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+    res.setHeader(
+      'Permissions-Policy',
+      'geolocation=(), microphone=(), camera=()',
+    );
     if (process.env.NODE_ENV === 'production') {
-      res.setHeader('Strict-Transport-Security', 'max-age=15552000; includeSubDomains');
+      res.setHeader(
+        'Strict-Transport-Security',
+        'max-age=15552000; includeSubDomains',
+      );
     }
     if (process.env.ENABLE_CSP === 'true') {
       const csp =
@@ -71,4 +93,4 @@ async function bootstrap() {
   const port = process.env.PORT ? Number(process.env.PORT) : 3001;
   await app.listen(port);
 }
-bootstrap();
+void bootstrap();

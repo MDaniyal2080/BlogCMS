@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -11,8 +15,8 @@ export class CategoriesService {
       .toLowerCase()
       .trim()
       .replace(/\s+/g, '-')
-      .replace(/[^\w\-]+/g, '')
-      .replace(/\-\-+/g, '-');
+      .replace(/[^\w-]+/g, '')
+      .replace(/--+/g, '-');
   }
 
   async findAll() {
@@ -23,20 +27,46 @@ export class CategoriesService {
       }),
       this.prisma.setting.findUnique({ where: { key: 'categories_order' } }),
     ]);
-    const mapped = items.map(({ _count, ...cat }) => ({ ...cat, postCount: _count.posts }));
+
+    type CategoryBase = {
+      id: string;
+      name: string;
+      slug: string;
+      description: string | null;
+      color: string | null;
+      createdAt: Date;
+      updatedAt: Date;
+    };
+    type CategoryWithCount = CategoryBase & { postCount: number };
+
+    const mapped: CategoryWithCount[] = items.map(({ _count, ...cat }) => ({
+      ...(cat as CategoryBase),
+      postCount: _count.posts,
+    }));
+
     if (!orderSetting?.value) return mapped;
+
     let orderIds: string[] = [];
     try {
-      orderIds = JSON.parse(orderSetting.value);
-      if (!Array.isArray(orderIds)) orderIds = [];
+      const parsed = JSON.parse(orderSetting.value) as unknown;
+      if (Array.isArray(parsed)) {
+        orderIds = parsed.filter((x): x is string => typeof x === 'string');
+      }
     } catch {
-      orderIds = [];
+      // ignore parse errors; keep default empty order
     }
-    const indexMap = new Map(orderIds.map((id, idx) => [id, idx]));
+
+    const indexMap: Map<string, number> = new Map(
+      orderIds.map((id, idx) => [id, idx] as [string, number]),
+    );
     // Sort by stored order first; items not in order come after, by name asc
-    return [...mapped].sort((a: any, b: any) => {
-      const ia = indexMap.has(a.id) ? (indexMap.get(a.id) as number) : Number.MAX_SAFE_INTEGER;
-      const ib = indexMap.has(b.id) ? (indexMap.get(b.id) as number) : Number.MAX_SAFE_INTEGER;
+    return [...mapped].sort((a: CategoryWithCount, b: CategoryWithCount) => {
+      const ia = indexMap.has(a.id)
+        ? (indexMap.get(a.id) as number)
+        : Number.MAX_SAFE_INTEGER;
+      const ib = indexMap.has(b.id)
+        ? (indexMap.get(b.id) as number)
+        : Number.MAX_SAFE_INTEGER;
       if (ia !== ib) return ia - ib;
       return a.name.localeCompare(b.name);
     });
@@ -81,19 +111,31 @@ export class CategoriesService {
 
   async update(
     id: string,
-    data: { name?: string; slug?: string; description?: string | null; color?: string | null },
+    data: {
+      name?: string;
+      slug?: string;
+      description?: string | null;
+      color?: string | null;
+    },
   ) {
     const exists = await this.prisma.category.findUnique({ where: { id } });
     if (!exists) throw new NotFoundException('Category not found');
 
     const name = data.name?.trim();
     const providedSlug = data.slug?.trim();
-    let slug: string | undefined = providedSlug ? this.slugify(providedSlug) : undefined;
+    let slug: string | undefined = providedSlug
+      ? this.slugify(providedSlug)
+      : undefined;
 
-    const nameChanged = !!(name && name.toLowerCase() !== exists.name.toLowerCase());
+    const nameChanged = !!(
+      name && name.toLowerCase() !== exists.name.toLowerCase()
+    );
 
     if (nameChanged || slug) {
-      const ors: any[] = [];
+      const ors: Array<
+        | { name: { equals: string; mode: 'insensitive' } }
+        | { slug: { equals: string; mode: 'insensitive' } }
+      > = [];
       if (nameChanged) {
         ors.push({ name: { equals: name, mode: 'insensitive' } });
       }
@@ -105,7 +147,9 @@ export class CategoriesService {
           where: { OR: ors, NOT: { id } },
         });
         if (conflict) {
-          throw new BadRequestException('Category with this name or slug already exists');
+          throw new BadRequestException(
+            'Category with this name or slug already exists',
+          );
         }
       }
       // If slug not explicitly provided but name changed, derive slug from new name
@@ -128,7 +172,9 @@ export class CategoriesService {
   async remove(id: string) {
     await this.prisma.$transaction(async (tx) => {
       await tx.category.delete({ where: { id } });
-      const existing = await tx.setting.findUnique({ where: { key: 'categories_order' } });
+      const existing = await tx.setting.findUnique({
+        where: { key: 'categories_order' },
+      });
       if (!existing?.value) {
         await tx.setting.upsert({
           where: { key: 'categories_order' },
@@ -142,7 +188,11 @@ export class CategoriesService {
         const filtered = Array.isArray(arr) ? arr.filter((x) => x !== id) : [];
         await tx.setting.upsert({
           where: { key: 'categories_order' },
-          create: { key: 'categories_order', value: JSON.stringify(filtered), type: 'json' },
+          create: {
+            key: 'categories_order',
+            value: JSON.stringify(filtered),
+            type: 'json',
+          },
           update: { value: JSON.stringify(filtered), type: 'json' },
         });
       } catch {
@@ -160,10 +210,16 @@ export class CategoriesService {
     // Validate ids exist (best-effort)
     const cats = await this.prisma.category.findMany({ select: { id: true } });
     const validIds = new Set(cats.map((c) => c.id));
-    const cleaned = (Array.isArray(ids) ? ids : []).filter((id) => validIds.has(id));
+    const cleaned = (Array.isArray(ids) ? ids : []).filter((id) =>
+      validIds.has(id),
+    );
     await this.prisma.setting.upsert({
       where: { key: 'categories_order' },
-      create: { key: 'categories_order', value: JSON.stringify(cleaned), type: 'json' },
+      create: {
+        key: 'categories_order',
+        value: JSON.stringify(cleaned),
+        type: 'json',
+      },
       update: { value: JSON.stringify(cleaned), type: 'json' },
     });
     return { message: 'Order updated' };

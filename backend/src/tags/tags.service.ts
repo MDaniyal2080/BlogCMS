@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 
@@ -12,8 +16,8 @@ export class TagsService {
       .toLowerCase()
       .trim()
       .replace(/\s+/g, '-')
-      .replace(/[^\w\-]+/g, '')
-      .replace(/\-\-+/g, '-');
+      .replace(/[^\w-]+/g, '')
+      .replace(/--+/g, '-');
   }
 
   async findAll(q?: string) {
@@ -30,9 +34,14 @@ export class TagsService {
       orderBy: { name: 'asc' },
       include: { _count: { select: { posts: true } } },
     });
-    type TagWithCount = Prisma.TagGetPayload<{ include: { _count: { select: { posts: true } } } }>;
+    type TagWithCount = Prisma.TagGetPayload<{
+      include: { _count: { select: { posts: true } } };
+    }>;
     const withCount = items as TagWithCount[];
-    return withCount.map(({ _count, ...t }) => ({ ...t, postCount: _count.posts }));
+    return withCount.map(({ _count, ...t }) => ({
+      ...t,
+      postCount: _count.posts,
+    }));
   }
 
   async findOne(id: string) {
@@ -53,7 +62,8 @@ export class TagsService {
         ],
       },
     });
-    if (existing) throw new BadRequestException('Tag with this name already exists');
+    if (existing)
+      throw new BadRequestException('Tag with this name already exists');
     return this.prisma.tag.create({ data: { name, slug } });
   }
 
@@ -72,7 +82,8 @@ export class TagsService {
           NOT: { id },
         },
       });
-      if (conflict) throw new BadRequestException('Tag with this name already exists');
+      if (conflict)
+        throw new BadRequestException('Tag with this name already exists');
     }
     return this.prisma.tag.update({
       where: { id },
@@ -89,18 +100,27 @@ export class TagsService {
   }
 
   async merge(sourceIds: string[], targetId: string) {
-    const cleanedSources = (Array.isArray(sourceIds) ? sourceIds : []).filter((x) => x && x !== targetId);
+    const cleanedSources = (Array.isArray(sourceIds) ? sourceIds : []).filter(
+      (x) => x && x !== targetId,
+    );
     if (!targetId || cleanedSources.length === 0) {
-      throw new BadRequestException('Provide targetId and one or more sourceIds');
+      throw new BadRequestException(
+        'Provide targetId and one or more sourceIds',
+      );
     }
-    const target = await this.prisma.tag.findUnique({ where: { id: targetId } });
+    const target = await this.prisma.tag.findUnique({
+      where: { id: targetId },
+    });
     if (!target) throw new NotFoundException('Target tag not found');
 
     await this.prisma.$transaction(async (tx) => {
       for (const sid of cleanedSources) {
         const src = await tx.tag.findUnique({ where: { id: sid } });
         if (!src) continue; // skip non-existing
-        const links = await tx.postTag.findMany({ where: { tagId: sid }, select: { postId: true } });
+        const links = await tx.postTag.findMany({
+          where: { tagId: sid },
+          select: { postId: true },
+        });
         for (const link of links) {
           // Upsert relation to target
           await tx.postTag.upsert({
@@ -120,7 +140,9 @@ export class TagsService {
   }
 
   async cleanupUnused() {
-    const res = await this.prisma.tag.deleteMany({ where: { posts: { none: {} } } });
+    const res = await this.prisma.tag.deleteMany({
+      where: { posts: { none: {} } },
+    });
     return { deleted: res.count };
   }
 }

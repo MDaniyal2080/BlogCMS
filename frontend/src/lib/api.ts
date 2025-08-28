@@ -1,4 +1,5 @@
 import axios from 'axios';
+import type { Post, Category, Tag, Setting } from '@/types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 const SEND_CREDENTIALS = process.env.NEXT_PUBLIC_SEND_CREDENTIALS === 'true';
@@ -94,6 +95,24 @@ api.interceptors.response.use(
   }
 );
 
+// Common list query params
+type ListParams = {
+  limit?: number;
+  offset?: number;
+  q?: string;
+  category?: string;
+  tag?: string;
+  sort?: string;
+  order?: 'asc' | 'desc';
+  published?: boolean;
+  featured?: boolean;
+  excludeIds?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+};
+
+type SettingsUpdate = Partial<Setting> | { value?: string } | Record<string, unknown>;
+
 // Auth APIs
 export const authAPI = {
   login: (data: { email: string; password: string; rememberMe?: boolean }) =>
@@ -105,14 +124,14 @@ export const authAPI = {
 
 // Posts APIs
 export const postsAPI = {
-  getAll: (params?: any) => api.get('/posts', { params }),
+  getAll: (params?: ListParams) => api.get('/posts', { params }),
   getOne: (slug: string) => api.get(`/posts/slug/${slug}`),
   // Alias used by pages
   getBySlug: (slug: string) => api.get(`/posts/slug/${slug}`),
   // New: fetch by backend id (for admin edit page)
   getById: (id: string) => api.get(`/posts/${id}`),
-  create: (data: any) => api.post('/posts', data),
-  update: (id: string, data: any) => api.put(`/posts/${id}`, data),
+  create: (data: Partial<Post>) => api.post('/posts', data),
+  update: (id: string, data: Partial<Post>) => api.put(`/posts/${id}`, data),
   duplicate: (id: string) => api.post(`/posts/${id}/duplicate`),
   delete: (id: string) => api.delete(`/posts/${id}`),
   bulkStatus: (ids: string[], status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED', publishedAt?: string) =>
@@ -122,7 +141,7 @@ export const postsAPI = {
     api.get(`/posts/category/${categorySlug}`),
   getByTag: (tagSlug: string) => 
     api.get(`/posts/tag/${tagSlug}`),
-  search: (q: string, params?: any) => 
+  search: (q: string, params?: Omit<ListParams, 'q'>) => 
     api.get('/posts/search', { params: { q, ...(params || {}) } }),
   stats: () => api.get('/posts/stats'),
   incrementView: (id: string) => api.post(`/posts/${id}/view`),
@@ -134,18 +153,18 @@ export const postsAPI = {
 export const categoriesAPI = {
   getAll: () => api.get('/categories'),
   getOne: (id: string) => api.get(`/categories/${id}`),
-  create: (data: any) => api.post('/categories', data),
-  update: (id: string, data: any) => api.put(`/categories/${id}`, data),
+  create: (data: Partial<Category>) => api.post('/categories', data),
+  update: (id: string, data: Partial<Category>) => api.put(`/categories/${id}`, data),
   delete: (id: string) => api.delete(`/categories/${id}`),
   reorder: (ids: string[]) => api.post('/categories/reorder', { ids }),
 };
 
 // Tags APIs
 export const tagsAPI = {
-  getAll: (params?: any) => api.get('/tags', { params }),
+  getAll: (params?: ListParams) => api.get('/tags', { params }),
   getOne: (id: string) => api.get(`/tags/${id}`),
-  create: (data: any) => api.post('/tags', data),
-  update: (id: string, data: any) => api.put(`/tags/${id}`, data),
+  create: (data: Partial<Tag>) => api.post('/tags', data),
+  update: (id: string, data: Partial<Tag>) => api.put(`/tags/${id}`, data),
   delete: (id: string) => api.delete(`/tags/${id}`),
   merge: (sourceIds: string[], targetId: string) =>
     api.post('/tags/merge', { sourceIds, targetId }),
@@ -155,12 +174,12 @@ export const tagsAPI = {
 // Settings APIs
 export const settingsAPI = {
   getAll: () => api.get('/settings'),
-  update: (key: string, data: any) => api.put(`/settings/${encodeURIComponent(key)}`, data),
+  update: (key: string, data: SettingsUpdate) => api.put(`/settings/${encodeURIComponent(key)}`, data),
 };
 
 // Comments APIs
 export const commentsAPI = {
-  byPost: (postId: string, params?: any) =>
+  byPost: (postId: string, params?: { limit?: number; offset?: number; approved?: boolean }) =>
     api.get(`/comments/by-post/${postId}`, { params }),
   create: (data: { postId: string; authorName?: string; authorEmail?: string; content: string; honeypot?: string }) =>
     api.post('/comments', data),

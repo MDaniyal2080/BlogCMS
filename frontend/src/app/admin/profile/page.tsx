@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -172,8 +173,7 @@ export default function ProfilePage() {
               <div className="flex items-center gap-4">
                 <div className="h-16 w-16 rounded-full bg-muted overflow-hidden flex items-center justify-center">
                   {avatar ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={toAbsoluteUrl(avatar)} alt="avatar" className="h-full w-full object-cover" />
+                    <Image src={toAbsoluteUrl(avatar)} alt="avatar" width={64} height={64} className="h-full w-full object-cover" />
                   ) : (
                     <ImageIcon className="h-6 w-6 text-muted-foreground" />
                   )}

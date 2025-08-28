@@ -43,7 +43,10 @@ export class UploadController {
           'image/avif',
         ]);
         if (!allowed.has(file.mimetype)) {
-          return cb(new Error('Invalid file type. Only images are allowed.'), false);
+          return cb(
+            new Error('Invalid file type. Only images are allowed.'),
+            false,
+          );
         }
         cb(null, true);
       },
@@ -77,7 +80,10 @@ export class UploadController {
           'image/avif',
         ]);
         if (!allowed.has(file.mimetype)) {
-          return cb(new Error('Invalid file type. Only images are allowed.'), false);
+          return cb(
+            new Error('Invalid file type. Only images are allowed.'),
+            false,
+          );
         }
         cb(null, true);
       },
@@ -89,7 +95,9 @@ export class UploadController {
   }
 
   @Post('avatar')
-  @ApiOperation({ summary: 'Upload an avatar image (auto-cropped to 256x256 square)' })
+  @ApiOperation({
+    summary: 'Upload an avatar image (auto-cropped to 256x256 square)',
+  })
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(AppRoleEnum.ADMIN, AppRoleEnum.EDITOR)
   @ApiConsumes('multipart/form-data')
@@ -112,7 +120,10 @@ export class UploadController {
           'image/avif',
         ]);
         if (!allowed.has(file.mimetype)) {
-          return cb(new Error('Invalid file type. Only images are allowed.'), false);
+          return cb(
+            new Error('Invalid file type. Only images are allowed.'),
+            false,
+          );
         }
         cb(null, true);
       },

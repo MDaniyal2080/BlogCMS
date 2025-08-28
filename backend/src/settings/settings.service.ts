@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -6,7 +6,9 @@ export class SettingsService {
   constructor(private prisma: PrismaService) {}
 
   async findAll() {
-    const items = await this.prisma.setting.findMany({ orderBy: { key: 'asc' } });
+    const items = await this.prisma.setting.findMany({
+      orderBy: { key: 'asc' },
+    });
     // Mask secret values before returning to clients
     return items.map((s) => {
       const nk = String(s.key)

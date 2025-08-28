@@ -7,6 +7,18 @@ export interface User {
   role: 'admin' | 'editor' | 'author';
 }
 
+// Narrowly typed helper to extract an error message from Axios-like errors
+type MaybeAxiosError = { response?: { data?: { message?: unknown } } };
+function getErrorMessage(err: unknown, fallback: string): string {
+  if (typeof err === 'object' && err !== null) {
+    const maybe = err as MaybeAxiosError;
+    const msg = maybe.response?.data?.message;
+    if (typeof msg === 'string') return msg;
+  }
+  if (err instanceof Error) return err.message;
+  return fallback;
+}
+
 export const auth = {
   login: async (email: string, password: string, rememberMe?: boolean) => {
     try {
@@ -29,10 +41,10 @@ export const auth = {
       setCookie('user', JSON.stringify(normalizedUser), rememberMe ? 30 : undefined);
 
       return { success: true, user: normalizedUser };
-    } catch (error: any) {
-      return { 
-        success: false, 
-        error: error.response?.data?.message || 'Login failed' 
+    } catch (error: unknown) {
+      return {
+        success: false,
+        error: getErrorMessage(error, 'Login failed'),
       };
     }
   },
@@ -47,10 +59,10 @@ export const auth = {
     try {
       const response = await authAPI.register({ email, password, username, firstName, lastName });
       return { success: true, data: response.data };
-    } catch (error: any) {
-      return { 
-        success: false, 
-        error: error.response?.data?.message || 'Registration failed' 
+    } catch (error: unknown) {
+      return {
+        success: false,
+        error: getErrorMessage(error, 'Registration failed'),
       };
     }
   },

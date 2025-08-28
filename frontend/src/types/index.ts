@@ -13,8 +13,8 @@ export interface Post {
   slug: string;
   content: string;
   markdown?: string;
-  excerpt?: string;
-  featuredImage?: string;
+  excerpt?: string | null;
+  featuredImage?: string | null;
   featured: boolean;
   published: boolean;
   status?: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';

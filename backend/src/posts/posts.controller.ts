@@ -18,6 +18,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { AppRoleEnum } from '../common/types/roles';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import type { AuthUser } from '../common/decorators/current-user.decorator';
 
 @ApiTags('posts')
 @Controller('posts')
@@ -26,7 +27,31 @@ export class PostsController {
 
   @Get()
   @ApiOperation({ summary: 'List posts' })
-  list(@Query() query: any) {
+  list(
+    @Query()
+    query: {
+      page?: number | string;
+      limit?: number | string;
+      published?: string | boolean | number;
+      status?: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+      sortBy?:
+        | 'createdAt'
+        | 'updatedAt'
+        | 'publishedAt'
+        | 'title'
+        | 'viewCount';
+      sortOrder?: string;
+      categoryId?: string;
+      categorySlug?: string;
+      tagSlug?: string;
+      dateFrom?: string;
+      dateTo?: string;
+      q?: string;
+      withMeta?: unknown;
+      featured?: string | boolean | number;
+      excludeIds?: string | string[];
+    },
+  ) {
     return this.postsService.list(query);
   }
 
@@ -105,8 +130,8 @@ export class PostsController {
   @ApiOperation({ summary: 'Create a post' })
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(AppRoleEnum.ADMIN, AppRoleEnum.EDITOR)
-  create(@Body() body: CreatePostDto, @CurrentUser() user: any) {
-    return this.postsService.create({ ...body, authorId: user?.userId });
+  create(@Body() body: CreatePostDto, @CurrentUser() user: AuthUser) {
+    return this.postsService.create({ ...body, authorId: user.userId });
   }
 
   @Put(':id')
@@ -121,8 +146,8 @@ export class PostsController {
   @ApiOperation({ summary: 'Duplicate a post (creates a draft copy)' })
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(AppRoleEnum.ADMIN, AppRoleEnum.EDITOR)
-  duplicate(@Param('id') id: string, @CurrentUser() user: any) {
-    return this.postsService.duplicate(id, user?.userId);
+  duplicate(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.postsService.duplicate(id, user.userId);
   }
 
   @Delete(':id')
@@ -139,10 +164,14 @@ export class PostsController {
   @Roles(AppRoleEnum.ADMIN, AppRoleEnum.EDITOR)
   bulkStatus(
     @Body()
-    body: { ids: string[]; status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'; publishedAt?: string }
+    body: {
+      ids: string[];
+      status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+      publishedAt?: string;
+    },
   ) {
-    const { ids, status, publishedAt } = body || ({} as any);
-    return this.postsService.bulkUpdateStatus(ids || [], status, publishedAt);
+    const { ids, status, publishedAt } = body;
+    return this.postsService.bulkUpdateStatus(ids ?? [], status, publishedAt);
   }
 
   @Post('bulk/delete')
@@ -150,7 +179,7 @@ export class PostsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(AppRoleEnum.ADMIN, AppRoleEnum.EDITOR)
   bulkDelete(@Body() body: { ids: string[] }) {
-    const { ids } = body || ({} as any);
-    return this.postsService.bulkDelete(ids || []);
+    const { ids } = body;
+    return this.postsService.bulkDelete(ids ?? []);
   }
 }

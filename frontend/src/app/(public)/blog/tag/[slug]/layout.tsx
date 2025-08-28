@@ -13,24 +13,25 @@ async function getTags() {
   }
 }
 
-export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
   const tags = await getTags();
-  const tag = tags.find((t) => t.slug === params.slug);
+  const tag = tags.find((t) => t.slug === slug);
 
-  const title = tag ? `Tag: ${tag.name}` : `Tag: ${params.slug}`;
+  const title = tag ? `Tag: ${tag.name}` : `Tag: ${slug}`;
   const description = tag
     ? `Posts tagged with ${tag.name}.`
-    : `Posts tagged with ${params.slug}.`;
+    : `Posts tagged with ${slug}.`;
 
   return {
     title,
     description,
-    alternates: { canonical: `/blog/tag/${params.slug}` },
+    alternates: { canonical: `/blog/tag/${slug}` },
     openGraph: {
       title,
       description,
       type: 'website',
-      url: `/blog/tag/${params.slug}`,
+      url: `/blog/tag/${slug}`,
     },
     twitter: {
       title,
@@ -40,8 +41,8 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   };
 }
 
-export default function TagLayout({ children, params }: { children: React.ReactNode; params: { slug: string } }) {
-  const name = params.slug;
+export default async function TagLayout({ children, params }: { children: React.ReactNode; params: Promise<{ slug: string }> }) {
+  const { slug: name } = await params;
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'CollectionPage',
