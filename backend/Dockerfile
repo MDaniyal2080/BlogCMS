@@ -1,40 +1,46 @@
-FROM node:20-alpine
+# Build stage
+FROM node:20-alpine AS builder
 
-# Install dependencies for Prisma
 RUN apk add --no-cache libc6-compat
 
 WORKDIR /app
 
-# Copy package files
+# Copy package files and install ALL dependencies
 COPY package*.json ./
-
-# Install all dependencies
 RUN npm ci
 
-# Copy Prisma schema
+# Copy and build
 COPY prisma ./prisma/
-
-# Generate Prisma Client
 RUN npx prisma generate
 
-# Copy application source
 COPY . .
-
-# Build the application
 RUN npm run build
 
-# Remove dev dependencies
-RUN npm prune --production
+# Production stage - smaller image
+FROM node:20-alpine
+
+RUN apk add --no-cache libc6-compat
+
+WORKDIR /app
+
+# Copy package files and install production deps only
+COPY package*.json ./
+RUN npm ci --production
+
+# Copy built application from builder
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/prisma ./prisma
+
+# Generate Prisma client in production image
+RUN npx prisma generate
+
+# Copy entrypoint
+COPY --from=builder /app/docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Create uploads directory
 RUN mkdir -p /app/uploads
 
-# Copy and make entrypoint executable
-COPY docker-entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
-
-# Expose port
 EXPOSE 3001
 
-# Start application
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]

@@ -13,3 +13,12 @@ coverage
 .nyc_output
 *.log
 uploads/*
+test
+*.spec.ts
+*.test.ts
+.DS_Store
+Thumbs.db
+*.md
+!README.md
+.github
+.husky
