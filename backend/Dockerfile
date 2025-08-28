@@ -20,13 +20,9 @@ RUN npm run build
 # Production stage - smaller image
 FROM node:20-alpine
 
-RUN apk add --no-cache libc6-compat dumb-init
+RUN apk add --no-cache libc6-compat
 
 WORKDIR /app
-
-# Create non-root user for security
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nestjs -u 1001
 
 # Copy package files and install production deps only
 COPY package*.json ./
@@ -43,14 +39,9 @@ RUN npx prisma generate
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-# Create uploads directory and set permissions
-RUN mkdir -p /app/uploads && chown -R nestjs:nodejs /app
-
-# Switch to non-root user
-USER nestjs
+# Create uploads directory
+RUN mkdir -p /app/uploads
 
 EXPOSE 3001
 
-# Use dumb-init to handle signals properly
-ENTRYPOINT ["dumb-init", "--"]
 CMD ["/usr/local/bin/docker-entrypoint.sh"]

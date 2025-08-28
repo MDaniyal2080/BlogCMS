@@ -1,46 +1,19 @@
 #!/bin/sh
 set -e
 
-echo "Starting application..."
+echo "🚀 Starting BlogCMS Backend..."
 
-# Wait for database to be available (with timeout)
-wait_for_db() {
-    echo "Waiting for database to be ready..."
-    local max_attempts=30
-    local attempt=1
-    
-    while [ $attempt -le $max_attempts ]; do
-        if npx prisma db execute --stdin <<< "SELECT 1;" > /dev/null 2>&1; then
-            echo "Database is ready!"
-            return 0
-        fi
-        
-        echo "Database not ready yet (attempt $attempt/$max_attempts), waiting 2 seconds..."
-        sleep 2
-        attempt=$((attempt + 1))
-    done
-    
-    echo "Warning: Database may not be ready after $max_attempts attempts, continuing anyway..."
-    return 1
-}
+# Log environment info
+echo "📊 Environment: ${NODE_ENV:-development}"
+echo "🔌 Port: ${PORT:-3001}"
+echo "💾 Database URL configured: $([ -n "$DATABASE_URL" ] && echo "Yes" || echo "No")"
 
-# Try to wait for database, but don't fail if it's not ready
-wait_for_db || true
-
-# Run Prisma migrations
-echo "Running database migrations..."
+# Run Prisma migrations (non-blocking)
+echo "🔄 Running database migrations..."
 npx prisma migrate deploy || {
-    echo "Migration failed, but continuing startup..."
-    echo "This may be expected if database is still initializing..."
-}
-
-# Generate Prisma client (in case it's missing)
-echo "Ensuring Prisma client is generated..."
-npx prisma generate || {
-    echo "Prisma generate failed, but continuing..."
+    echo "⚠️  Migration failed, continuing startup..."
 }
 
 # Start the application
-echo "Starting NestJS server..."
-echo "Server will be available at http://0.0.0.0:${PORT:-3001}/api"
+echo "🎯 Starting NestJS server..."
 exec node dist/main.js
