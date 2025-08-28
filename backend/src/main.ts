@@ -95,5 +95,6 @@ async function bootstrap() {
   const port = process.env.PORT ? Number(process.env.PORT) : 3001;
   // Bind to 0.0.0.0 so the process is reachable inside PaaS containers (e.g., Railway)
   await app.listen(port, '0.0.0.0');
+  console.log(`🚀 API server is running on http://0.0.0.0:${port}/api`);
 }
 void bootstrap();

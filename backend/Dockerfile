@@ -11,9 +11,8 @@ WORKDIR /app
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# Install dependencies
-RUN npm ci --only=production && \
-    npm install -g @nestjs/cli prisma && \
+# Install ALL dependencies (dev + prod) for build
+RUN npm ci && \
     npx prisma generate
 
 # Copy source code
@@ -30,11 +29,16 @@ RUN apk add --no-cache libc6-compat
 
 WORKDIR /app
 
+# Copy package files and install only production dependencies
+COPY package*.json ./
+RUN npm ci --omit=dev --ignore-scripts
+
+# Copy Prisma schema and generate client
+COPY --from=builder /app/prisma ./prisma
+RUN npx prisma generate
+
 # Copy built application
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/prisma ./prisma
 
 # Create uploads directory
 RUN mkdir -p /app/uploads
