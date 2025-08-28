@@ -1,6 +1,9 @@
 # Multi-stage build for optimized production image
 FROM node:20-alpine AS builder
 
+# Prisma on Alpine needs libc6-compat for native engines
+RUN apk add --no-cache libc6-compat
+
 # Set working directory
 WORKDIR /app
 
@@ -21,6 +24,9 @@ RUN npm run build
 
 # Production stage
 FROM node:20-alpine
+
+# Prisma on Alpine needs libc6-compat for native engines
+RUN apk add --no-cache libc6-compat
 
 WORKDIR /app
 
