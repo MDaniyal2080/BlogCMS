@@ -1,50 +1,40 @@
-# Multi-stage build for optimized production image
-FROM node:20-alpine AS builder
+FROM node:20-alpine
 
-# Prisma on Alpine needs libc6-compat for native engines
+# Install dependencies for Prisma
 RUN apk add --no-cache libc6-compat
 
-# Set working directory
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
+
+# Install all dependencies
+RUN npm ci
+
+# Copy Prisma schema
 COPY prisma ./prisma/
 
-# Install ALL dependencies (dev + prod) for build
-RUN npm ci && \
-    npx prisma generate
-
-# Copy source code
-COPY . .
-
-# Build application
-RUN npm run build
-
-# Production stage
-FROM node:20-alpine
-
-# Prisma on Alpine needs libc6-compat for native engines
-RUN apk add --no-cache libc6-compat
-
-WORKDIR /app
-
-# Copy package files and install only production dependencies
-COPY package*.json ./
-RUN npm ci --omit=dev --ignore-scripts
-
-# Copy Prisma schema and generate client
-COPY --from=builder /app/prisma ./prisma
+# Generate Prisma Client
 RUN npx prisma generate
 
-# Copy built application
-COPY --from=builder /app/dist ./dist
+# Copy application source
+COPY . .
+
+# Build the application
+RUN npm run build
+
+# Remove dev dependencies
+RUN npm prune --production
 
 # Create uploads directory
 RUN mkdir -p /app/uploads
+
+# Copy and make entrypoint executable
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Expose port
 EXPOSE 3001
 
 # Start application
-CMD ["sh", "-c", "npx prisma migrate deploy && npm run start:prod"]
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
