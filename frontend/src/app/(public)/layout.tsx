@@ -8,17 +8,39 @@ export default async function PublicLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+  // Build-safe API URL resolution: avoid localhost fallback in production
+  const API_URL_ENV = process.env.NEXT_PUBLIC_API_URL?.trim();
+  const API_URL = API_URL_ENV && API_URL_ENV.length > 0
+    ? API_URL_ENV
+    : (process.env.NODE_ENV === 'development' ? 'http://localhost:3001/api' : '');
+
   const normalizeKeyName = (key: string) =>
     key
       .trim()
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '_')
       .replace(/^_+|_+$/g, '');
+
+  const DISABLE_BUILD_FETCH = process.env.DISABLE_BUILD_TIME_SETTINGS_FETCH === 'true';
+  const SETTINGS_FETCH_TIMEOUT_MS = Number(process.env.SETTINGS_FETCH_TIMEOUT_MS || 4000);
+
   let settingsMap: Record<string, string> = {};
   try {
-    const res = await fetch(`${API_URL}/settings`, { next: { revalidate: 60 } });
-    const settings = await res.json();
+    const settings: any[] = await (async () => {
+      if (!API_URL || DISABLE_BUILD_FETCH) return [] as any[];
+      const controller = new AbortController();
+      const t = setTimeout(() => controller.abort(), SETTINGS_FETCH_TIMEOUT_MS);
+      try {
+        const res = await fetch(`${API_URL}/settings`, { next: { revalidate: 60 }, signal: controller.signal });
+        if (!res.ok) return [] as any[];
+        return await res.json();
+      } catch {
+        return [] as any[];
+      } finally {
+        clearTimeout(t);
+      }
+    })();
+
     (settings || []).forEach((s: any) => {
       if (s && s.key) {
         const nk = normalizeKeyName(s.key);
@@ -44,4 +66,5 @@ export default async function PublicLayout({
     </SettingsProvider>
   );
 }
+
 
