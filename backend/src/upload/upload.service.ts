@@ -1,6 +1,9 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
+import type { Metadata } from 'sharp';
+
+type SharpCallable = typeof import('sharp');
 
 @Injectable()
 export class UploadService {
@@ -8,11 +11,22 @@ export class UploadService {
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   }
 
-  // Lazy-load ESM-only sharp so the app can start under CommonJS output.
-  // Using dynamic import avoids ERR_REQUIRE_ESM crashes at bootstrap.
-  private async loadSharp() {
-    const m: any = await import('sharp');
-    return m.default ?? m;
+  // Lazy-load sharp default export (callable) in a type-safe way
+  // Works for both ESM and CommonJS environments.
+  private async loadSharp(): Promise<SharpCallable> {
+    const mod: unknown = await import('sharp');
+    // ESM: module has a callable default export
+    if (typeof mod === 'object' && mod !== null && 'default' in mod) {
+      const def = (mod as { default: unknown }).default;
+      if (typeof def === 'function') {
+        return def as SharpCallable;
+      }
+    }
+    // CJS: module itself is callable
+    if (typeof mod === 'function') {
+      return mod as SharpCallable;
+    }
+    throw new Error('Failed to load sharp module');
   }
 
   // Basic verification that the uploaded buffer is a valid image and within safe bounds
@@ -23,10 +37,10 @@ export class UploadService {
     if (!file?.buffer?.length) {
       throw new BadRequestException('Empty upload');
     }
-    let meta: any;
+    let meta: Metadata;
     try {
-      const Sharp = await this.loadSharp();
-      meta = await Sharp(file.buffer).metadata();
+      const sharp = await this.loadSharp();
+      meta = await sharp(file.buffer).metadata();
     } catch {
       throw new BadRequestException('Invalid or unsupported image');
     }
@@ -56,10 +70,10 @@ export class UploadService {
 
     await this.assertValidImage(file);
 
-    const Sharp = await this.loadSharp();
-    await Sharp(file.buffer)
+    const sharp = await this.loadSharp();
+    await sharp(file.buffer)
       .rotate()
-      .resize(1200, 630, { fit: 'cover', position: Sharp.strategy.attention })
+      .resize(1200, 630, { fit: 'cover', position: sharp.strategy.attention })
       .jpeg({ quality: 80 })
       .toFile(outPath);
 
@@ -79,8 +93,8 @@ export class UploadService {
     await this.assertValidImage(file);
 
     // Normalize orientation, cap width, strip metadata and re-encode to JPEG
-    const Sharp = await this.loadSharp();
-    await Sharp(file.buffer)
+    const sharp = await this.loadSharp();
+    await sharp(file.buffer)
       .rotate()
       .resize({ width: 1920, withoutEnlargement: true })
       .jpeg({ quality: 82 })
@@ -102,9 +116,9 @@ export class UploadService {
     await this.assertValidImage(file);
 
     // Square crop to 256x256 using attention strategy
-    const Sharp = await this.loadSharp();
-    await Sharp(file.buffer)
-      .resize(256, 256, { fit: 'cover', position: Sharp.strategy.attention })
+    const sharp = await this.loadSharp();
+    await sharp(file.buffer)
+      .resize(256, 256, { fit: 'cover', position: sharp.strategy.attention })
       .jpeg({ quality: 85 })
       .toFile(outPath);
 

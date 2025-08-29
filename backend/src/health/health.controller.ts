@@ -28,20 +28,21 @@ export class HealthController {
         Math.max(1000, Number(process.env.DB_CONNECT_TIMEOUT_MS || '5000')),
       );
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Database timeout')), dbTimeoutMs)
+        setTimeout(() => reject(new Error('Database timeout')), dbTimeoutMs),
       );
 
       await Promise.race([dbPromise, timeoutPromise]);
       healthCheck.database = 'connected';
-      
+
       return res.status(HttpStatus.OK).json(healthCheck);
     } catch (error) {
       // Still return 200 OK for health checks even if DB is down
       // This allows the service to start up and be considered "healthy"
       // while the database is still initializing
       healthCheck.database = 'disconnected';
-      healthCheck['error'] = error instanceof Error ? error.message : 'Unknown error';
-      
+      healthCheck['error'] =
+        error instanceof Error ? error.message : 'Unknown error';
+
       console.warn('Health check: Database connection failed:', error);
       return res.status(HttpStatus.OK).json(healthCheck);
     }
@@ -53,7 +54,7 @@ export class HealthController {
     try {
       // This endpoint requires database to be ready
       await this.prisma.$queryRaw`SELECT 1`;
-      
+
       return res.status(HttpStatus.OK).json({
         status: 'ready',
         timestamp: new Date().toISOString(),

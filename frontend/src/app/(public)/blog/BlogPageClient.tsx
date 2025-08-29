@@ -155,255 +155,260 @@ export default function BlogPageClient() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-12">
-      <h1 className="text-4xl font-bold mb-8">Blog</h1>
+    <main className="min-h-screen">
+      <div className="container mx-auto px-4 py-6 sm:py-12">
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-6 sm:mb-8">Blog</h1>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        {/* Main content */}
-        <div className="lg:col-span-3">
-          {/* Optional quick search */}
-          <div className="max-w-md mb-8">
-            <SearchBar target="blog" />
-          </div>
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 lg:gap-8">
+          {/* Main Content */}
+          <div className="lg:col-span-3 order-2 lg:order-1">
+            {/* Optional quick search */}
+            <div className="max-w-md mb-8">
+              <SearchBar target="blog" />
+            </div>
 
-          {/* Date range filters */}
-          <div className="flex flex-col gap-2 mb-6">
-            <div className="flex flex-wrap items-center gap-2">
-              <Input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => updateParam('dateFrom', e.target.value || undefined)}
-                placeholder="From"
-                className="w-40"
-              />
-              <span className="text-muted-foreground">to</span>
-              <Input
-                type="date"
-                value={dateTo}
-                onChange={(e) => updateParam('dateTo', e.target.value || undefined)}
-                placeholder="To"
-                className="w-40"
-              />
+            {/* Search and Filters */}
+            <div className="mb-6 sm:mb-8 space-y-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <Input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => updateParam('dateFrom', e.target.value || undefined)}
+                  placeholder="From"
+                  className="w-40"
+                />
+                <span className="text-muted-foreground">to</span>
+                <Input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => updateParam('dateTo', e.target.value || undefined)}
+                  placeholder="To"
+                  className="w-40"
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const to = new Date();
+                    const from = new Date();
+                    from.setDate(to.getDate() - 7);
+                    setDateRange(formatDateLocal(from), formatDateLocal(to));
+                  }}
+                >
+                  Last 7 days
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const to = new Date();
+                    const from = new Date();
+                    from.setDate(to.getDate() - 30);
+                    setDateRange(formatDateLocal(from), formatDateLocal(to));
+                  }}
+                >
+                  Last 30 days
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const to = new Date();
+                    const from = new Date(to.getFullYear(), 0, 1);
+                    setDateRange(formatDateLocal(from), formatDateLocal(to));
+                  }}
+                >
+                  This year
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setDateRange(undefined, undefined)}>
+                  All time
+                </Button>
+              </div>
+              {invalidDateRange && (
+                <p className="text-sm text-destructive">“From” date must be earlier than “To” date.</p>
+              )}
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const to = new Date();
-                  const from = new Date();
-                  from.setDate(to.getDate() - 7);
-                  setDateRange(formatDateLocal(from), formatDateLocal(to));
-                }}
-              >
-                Last 7 days
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const to = new Date();
-                  const from = new Date();
-                  from.setDate(to.getDate() - 30);
-                  setDateRange(formatDateLocal(from), formatDateLocal(to));
-                }}
-              >
-                Last 30 days
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const to = new Date();
-                  const from = new Date(to.getFullYear(), 0, 1);
-                  setDateRange(formatDateLocal(from), formatDateLocal(to));
-                }}
-              >
-                This year
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => setDateRange(undefined, undefined)}>
-                All time
-              </Button>
-            </div>
-            {invalidDateRange && (
-              <p className="text-sm text-destructive">“From” date must be earlier than “To” date.</p>
+
+            {/* Active filters */}
+            {(q || category || tag || dateFrom || dateTo) && (
+              <div className="flex flex-wrap items-center gap-2 mb-6">
+                {q && (
+                  <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full border text-sm">
+                    <span>Search: "{q}"</span>
+                    <button
+                      type="button"
+                      aria-label="Clear search filter"
+                      className="hover:text-destructive"
+                      onClick={() => updateParam('q')}
+                    >
+                      <XIcon className="h-4 w-4" />
+                    </button>
+                  </span>
+                )}
+                {(dateFrom || dateTo) && (
+                  <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full border text-sm">
+                    <span>
+                      Date: {dateFrom || 'Any'} <span className="mx-1">to</span> {dateTo || 'Now'}
+                    </span>
+                    <button
+                      type="button"
+                      aria-label="Clear date filter"
+                      className="hover:text-destructive"
+                      onClick={() => {
+                        const params = new URLSearchParams(searchParams?.toString());
+                        params.delete('dateFrom');
+                        params.delete('dateTo');
+                        params.delete('page');
+                        const query = params.toString();
+                        router.push(`/blog${query ? `?${query}` : ''}`);
+                      }}
+                    >
+                      <XIcon className="h-4 w-4" />
+                    </button>
+                  </span>
+                )}
+                {category && (
+                  <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full border text-sm">
+                    <span>Category: {category}</span>
+                    <button
+                      type="button"
+                      aria-label="Clear category filter"
+                      className="hover:text-destructive"
+                      onClick={() => updateParam('category')}
+                    >
+                      <XIcon className="h-4 w-4" />
+                    </button>
+                  </span>
+                )}
+                {tag && (
+                  <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full border text-sm">
+                    <span>Tag: {tag}</span>
+                    <button
+                      type="button"
+                      aria-label="Clear tag filter"
+                      className="hover:text-destructive"
+                      onClick={() => updateParam('tag')}
+                    >
+                      <XIcon className="h-4 w-4" />
+                    </button>
+                  </span>
+                )}
+                <Button variant="ghost" size="sm" onClick={clearAllFilters}>
+                  Clear all
+                </Button>
+              </div>
+            )}
+
+            {loading && page === 1 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {Array.from({ length: perPage }).map((_, i) => (
+                  <div key={i} className="h-64 bg-muted animate-pulse rounded-lg" />
+                ))}
+              </div>
+            ) : posts.length ? (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {posts.map((post) => (
+                    <BlogCard key={post.id} post={post} highlight={q} />
+                  ))}
+                </div>
+
+                {/* Numbered pagination */}
+                {totalPages > 1 && (
+                  <div className="flex justify-center mt-8">
+                    <div className="inline-flex items-center gap-1">
+                      <Button variant="outline" size="sm" disabled={page <= 1 || loading} onClick={() => setPageParam(page - 1)}>
+                        Prev
+                      </Button>
+                      {Array.from({ length: Math.min(7, totalPages) }).map((_, idx) => {
+                        // Build a compact pagination around the current page
+                        let start = Math.max(1, page - 3);
+                        let end = Math.min(totalPages, start + 6);
+                        start = Math.max(1, end - 6);
+                        const p = start + idx;
+                        if (p > end) return null;
+                        const active = p === page;
+                        return (
+                          <Button
+                            key={p}
+                            variant={active ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setPageParam(p)}
+                            disabled={active || loading}
+                          >
+                            {p}
+                          </Button>
+                        );
+                      })}
+                      <Button variant="outline" size="sm" disabled={page >= totalPages || loading} onClick={() => setPageParam(page + 1)}>
+                        Next
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="text-center py-6 sm:py-12 border rounded">
+                <h3 className="text-xl font-semibold mb-2">No posts found</h3>
+                <p className="text-muted-foreground mb-4">Try adjusting your filters or search.</p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {(dateFrom || dateTo) && (
+                    <Button variant="outline" size="sm" onClick={() => setDateRange(undefined, undefined)}>
+                      Remove date filter
+                    </Button>
+                  )}
+                  {q && (
+                    <Button variant="outline" size="sm" onClick={() => updateParam('q')}>
+                      Clear search
+                    </Button>
+                  )}
+                  {category && (
+                    <Button variant="outline" size="sm" onClick={() => updateParam('category')}>
+                      Clear category
+                    </Button>
+                  )}
+                  {tag && (
+                    <Button variant="outline" size="sm" onClick={() => updateParam('tag')}>
+                      Clear tag
+                    </Button>
+                  )}
+                  {category ? (
+                    <Link href={`/blog?category=${encodeURIComponent(category)}`}>
+                      <Button variant="secondary" size="sm">Browse all in {category}</Button>
+                    </Link>
+                  ) : null}
+                  <Link href="/blog">
+                    <Button variant="ghost" size="sm">Browse all posts</Button>
+                  </Link>
+                </div>
+              </div>
             )}
           </div>
 
-          {/* Active filters */}
-          {(q || category || tag || dateFrom || dateTo) && (
-            <div className="flex flex-wrap items-center gap-2 mb-6">
-              {q && (
-                <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full border text-sm">
-                  <span>Search: "{q}"</span>
-                  <button
-                    type="button"
-                    aria-label="Clear search filter"
-                    className="hover:text-destructive"
-                    onClick={() => updateParam('q')}
-                  >
-                    <XIcon className="h-4 w-4" />
-                  </button>
-                </span>
-              )}
-              {(dateFrom || dateTo) && (
-                <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full border text-sm">
-                  <span>
-                    Date: {dateFrom || 'Any'} <span className="mx-1">to</span> {dateTo || 'Now'}
-                  </span>
-                  <button
-                    type="button"
-                    aria-label="Clear date filter"
-                    className="hover:text-destructive"
-                    onClick={() => {
-                      const params = new URLSearchParams(searchParams?.toString());
-                      params.delete('dateFrom');
-                      params.delete('dateTo');
-                      params.delete('page');
-                      const query = params.toString();
-                      router.push(`/blog${query ? `?${query}` : ''}`);
-                    }}
-                  >
-                    <XIcon className="h-4 w-4" />
-                  </button>
-                </span>
-              )}
-              {category && (
-                <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full border text-sm">
-                  <span>Category: {category}</span>
-                  <button
-                    type="button"
-                    aria-label="Clear category filter"
-                    className="hover:text-destructive"
-                    onClick={() => updateParam('category')}
-                  >
-                    <XIcon className="h-4 w-4" />
-                  </button>
-                </span>
-              )}
-              {tag && (
-                <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full border text-sm">
-                  <span>Tag: {tag}</span>
-                  <button
-                    type="button"
-                    aria-label="Clear tag filter"
-                    className="hover:text-destructive"
-                    onClick={() => updateParam('tag')}
-                  >
-                    <XIcon className="h-4 w-4" />
-                  </button>
-                </span>
-              )}
-              <Button variant="ghost" size="sm" onClick={clearAllFilters}>
-                Clear all
-              </Button>
+          {/* Sidebar */}
+          <aside className="space-y-6 sm:space-y-8 order-1 lg:order-2">
+            {/* Popular Posts */}
+            <div>
+              <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Popular Posts</h3>
+              <PopularPostsWidget limit={5} />
             </div>
-          )}
 
-          {loading && page === 1 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {Array.from({ length: perPage }).map((_, i) => (
-                <div key={i} className="h-64 bg-muted animate-pulse rounded-lg" />
-              ))}
+            {/* Categories Widget */}
+            <div>
+              <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Categories</h3>
+              <CategoriesWidget limit={12} useBlogQueryLinks />
             </div>
-          ) : posts.length ? (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {posts.map((post) => (
-                  <BlogCard key={post.id} post={post} highlight={q} />
-                ))}
-              </div>
 
-              {/* Numbered pagination */}
-              {totalPages > 1 && (
-                <div className="flex justify-center mt-8">
-                  <div className="inline-flex items-center gap-1">
-                    <Button variant="outline" size="sm" disabled={page <= 1 || loading} onClick={() => setPageParam(page - 1)}>
-                      Prev
-                    </Button>
-                    {Array.from({ length: Math.min(7, totalPages) }).map((_, idx) => {
-                      // Build a compact pagination around the current page
-                      let start = Math.max(1, page - 3);
-                      let end = Math.min(totalPages, start + 6);
-                      start = Math.max(1, end - 6);
-                      const p = start + idx;
-                      if (p > end) return null;
-                      const active = p === page;
-                      return (
-                        <Button
-                          key={p}
-                          variant={active ? 'default' : 'outline'}
-                          size="sm"
-                          onClick={() => setPageParam(p)}
-                          disabled={active || loading}
-                        >
-                          {p}
-                        </Button>
-                      );
-                    })}
-                    <Button variant="outline" size="sm" disabled={page >= totalPages || loading} onClick={() => setPageParam(page + 1)}>
-                      Next
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="text-center py-12 border rounded">
-              <h3 className="text-xl font-semibold mb-2">No posts found</h3>
-              <p className="text-muted-foreground mb-4">Try adjusting your filters or search.</p>
-              <div className="flex flex-wrap justify-center gap-2">
-                {(dateFrom || dateTo) && (
-                  <Button variant="outline" size="sm" onClick={() => setDateRange(undefined, undefined)}>
-                    Remove date filter
-                  </Button>
-                )}
-                {q && (
-                  <Button variant="outline" size="sm" onClick={() => updateParam('q')}>
-                    Clear search
-                  </Button>
-                )}
-                {category && (
-                  <Button variant="outline" size="sm" onClick={() => updateParam('category')}>
-                    Clear category
-                  </Button>
-                )}
-                {tag && (
-                  <Button variant="outline" size="sm" onClick={() => updateParam('tag')}>
-                    Clear tag
-                  </Button>
-                )}
-                {category ? (
-                  <Link href={`/blog?category=${encodeURIComponent(category)}`}>
-                    <Button variant="secondary" size="sm">Browse all in {category}</Button>
-                  </Link>
-                ) : null}
-                <Link href="/blog">
-                  <Button variant="ghost" size="sm">Browse all posts</Button>
-                </Link>
-              </div>
+            {/* Tags Widget */}
+            <div>
+              <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Tags</h3>
+              <TagsWidget useBlogQueryLinks />
             </div>
-          )}
+          </aside>
         </div>
-
-        {/* Sidebar */}
-        <aside className="lg:col-span-1 space-y-10">
-          <section>
-            <h3 className="text-lg font-semibold mb-3">Categories</h3>
-            <CategoriesWidget limit={12} useBlogQueryLinks />
-          </section>
-
-          <section>
-            <h3 className="text-lg font-semibold mb-3">Popular Posts</h3>
-            <PopularPostsWidget limit={5} />
-          </section>
-
-          <section>
-            <h3 className="text-lg font-semibold mb-3">Tags</h3>
-            <TagsWidget useBlogQueryLinks />
-          </section>
-        </aside>
       </div>
-    </div>
+    </main>
   );
 }

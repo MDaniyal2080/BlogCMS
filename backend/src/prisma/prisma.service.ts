@@ -12,9 +12,10 @@ export class PrismaService
     try {
       await this.$connect();
     } catch (e) {
-      // eslint-disable-next-line no-console
-      console.error('Prisma initial connect failed (non-fatal):',
-        e instanceof Error ? e.message : e);
+      console.error(
+        'Prisma initial connect failed (non-fatal):',
+        e instanceof Error ? e.message : e,
+      );
     }
   }
 

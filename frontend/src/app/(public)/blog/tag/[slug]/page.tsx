@@ -44,15 +44,14 @@ export default function TagPage() {
   }, [tags, posts, slug]);
 
   return (
-    <div className="container mx-auto px-4 py-12">
+    <div className="container mx-auto px-4 py-6 sm:py-12">
       <Link href="/blog">
         <Button variant="ghost" className="mb-6">
           <ArrowLeft className="mr-2 h-4 w-4" /> Back to Blog
         </Button>
       </Link>
-
-      <h1 className="text-4xl font-bold mb-2">Tag: {tagName}</h1>
-      <p className="text-muted-foreground mb-8">
+      <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">Tag: {tagName}</h1>
+      <p className="text-xs sm:text-sm text-muted-foreground mb-8">
         {loading
           ? 'Loading posts…'
           : posts.length
@@ -73,7 +72,7 @@ export default function TagPage() {
           ))}
         </div>
       ) : (
-        <div className="text-center py-12 border rounded">
+        <div className="text-center py-6 sm:py-12 border rounded">
           <h3 className="text-xl font-semibold mb-2">No posts found</h3>
           <p className="text-muted-foreground mb-4">Try browsing all posts.</p>
           <Link href="/blog">

@@ -8,6 +8,32 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
+function runSeed() {
+  try {
+    const env = { ...process.env };
+    if (!env.DATABASE_URL_UNPOOLED && env.DATABASE_URL) {
+      env.DATABASE_URL_UNPOOLED = env.DATABASE_URL;
+    }
+    const child = spawn('npx', ['prisma', 'db', 'seed'], {
+      stdio: 'inherit',
+      shell: true,
+      env,
+    });
+    child.on('exit', (code) => {
+      if (code === 0) {
+        console.log('[prisma] db seed completed successfully');
+      } else {
+        console.warn(`[prisma] db seed exited with code ${code}`);
+      }
+    });
+    child.on('error', (err) => {
+      console.warn('[prisma] db seed failed to start:', err?.message || err);
+    });
+  } catch (err) {
+    console.warn('[prisma] db seed spawn error:', err?.message || err);
+  }
+}
+
 function runMigrations() {
   try {
     // Ensure Prisma has a directUrl for migrations; fall back to DATABASE_URL if needed
@@ -23,6 +49,8 @@ function runMigrations() {
     child.on('exit', (code) => {
       if (code === 0) {
         console.log('[prisma] migrate deploy completed successfully');
+        console.log('[prisma] starting db seed...');
+        runSeed();
       } else {
         console.warn(`[prisma] migrate deploy exited with code ${code}`);
       }

@@ -183,7 +183,7 @@ export default function SinglePostClient({ slug, initialPost }: { slug: string; 
 
   if (loading) {
     return (
-      <div className="container mx-auto px-4 py-12">
+      <div className="container mx-auto px-4 py-6 sm:py-12">
         <div className="max-w-4xl mx-auto">
           <div className="h-8 bg-muted animate-pulse rounded mb-4" />
           <div className="h-64 bg-muted animate-pulse rounded mb-4" />
@@ -196,26 +196,23 @@ export default function SinglePostClient({ slug, initialPost }: { slug: string; 
 
   if (!post) {
     return (
-      <div className="container mx-auto px-4 py-12">
+      <div className="container mx-auto px-4 py-6 sm:py-12">
         <div className="text-center">
-          <h1 className="text-3xl font-bold mb-4">Post Not Found</h1>
           <Link href="/blog">
-            <Button>Back to Blog</Button>
+            <Button variant="ghost" className="mb-6 no-print">
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back to Blog
+            </Button>
           </Link>
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-3 sm:mb-4">Post not found</h1>
+          <p className="text-muted-foreground">The post you're looking for doesn't exist.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <article className="container mx-auto px-4 py-12">
-      <div className="max-w-4xl mx-auto">
-        <Link href="/blog">
-          <Button variant="ghost" className="mb-6 no-print">
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Blog
-          </Button>
-        </Link>
-
+    <article>
+      <div className="container mx-auto px-4 py-6 sm:py-12">
         {post.featuredImage && (
           <div className="relative w-full aspect-[16/9] mb-8">
             <Image
@@ -229,10 +226,9 @@ export default function SinglePostClient({ slug, initialPost }: { slug: string; 
           </div>
         )}
 
-        <header className="mb-8">
-          <h1 className="text-4xl font-bold mb-4">{post.title}</h1>
-          
-          <div className="flex flex-wrap gap-4 text-sm text-muted-foreground mb-4">
+        <header className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-3 sm:mb-4">{post.title}</h1>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground mb-4">
             <div className="flex items-center gap-1">
               <User className="h-4 w-4" />
               <span>{post.author?.name || 'Anonymous'}</span>
@@ -280,10 +276,31 @@ export default function SinglePostClient({ slug, initialPost }: { slug: string; 
               ))}
             </div>
           )}
+        </header>
 
-          {/* Share buttons */}
-          <div className="mt-4 flex items-center gap-2 no-print">
-            <span className="text-sm text-muted-foreground">Share:</span>
+        {post.excerpt && (
+          <div className="text-lg text-muted-foreground mb-8 italic">
+            {post.excerpt}
+          </div>
+        )}
+
+        {post.markdown && post.markdown.trim() ? (
+          <div className="prose prose-sm sm:prose-base md:prose-lg dark:prose-invert max-w-none mb-6 sm:mb-8">
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+              {post.markdown}
+            </ReactMarkdown>
+          </div>
+        ) : (
+          <div
+            className="prose prose-sm sm:prose-base md:prose-lg dark:prose-invert max-w-none mb-6 sm:mb-8"
+            dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
+          />
+        )}
+
+        {/* Share buttons */}
+        <div className="border-y py-4 sm:py-6 mb-6 sm:mb-8">
+          <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Share this post</h3>
+          <div className="flex flex-wrap gap-3 sm:gap-4">
             <Button variant="outline" size="icon" onClick={() => shareUrl && window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(post.title)}`, 'share-twitter', 'width=600,height=500')} aria-label="Share on Twitter">
               <Twitter className="h-4 w-4" />
             </Button>
@@ -305,53 +322,38 @@ export default function SinglePostClient({ slug, initialPost }: { slug: string; 
               </Button>
             )}
           </div>
-        </header>
-
-        {post.excerpt && (
-          <div className="text-lg text-muted-foreground mb-8 italic">
-            {post.excerpt}
-          </div>
-        )}
-
-        {post.markdown && post.markdown.trim() ? (
-          <div className="prose prose-lg max-w-none dark:prose-invert">
-            <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-              {post.markdown}
-            </ReactMarkdown>
-          </div>
-        ) : (
-          <div 
-            className="prose prose-lg max-w-none dark:prose-invert"
-            dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
-          />
-        )}
+        </div>
 
         {/* Prev/Next navigation */}
-        {prevNext && (prevNext.prev || prevNext.next) && (
-          <nav className="mt-12 flex justify-between items-center gap-4 no-print">
-            <div>
-              {prevNext.prev && (
-                <Link href={`/blog/${prevNext.prev.slug}`} className="inline-flex items-center gap-2 text-primary hover:underline">
+        {prevNext && (
+          <div className="flex flex-col sm:flex-row justify-between gap-3 sm:gap-4 mt-6 sm:mt-8">
+            {prevNext.prev ? (
+              <Link href={`/blog/${prevNext.prev.slug}`} className="inline-flex">
+                <Button variant="outline" size="sm" className="gap-2">
                   <ChevronLeft className="h-4 w-4" />
-                  <span className="line-clamp-1">{prevNext.prev.title}</span>
-                </Link>
-              )}
-            </div>
-            <div className="text-right">
-              {prevNext.next && (
-                <Link href={`/blog/${prevNext.next.slug}`} className="inline-flex items-center gap-2 text-primary hover:underline">
-                  <span className="line-clamp-1">{prevNext.next.title}</span>
+                  <span className="truncate max-w-[240px] sm:max-w-[320px]">{prevNext.prev.title}</span>
+                </Button>
+              </Link>
+            ) : (
+              <span />
+            )}
+            {prevNext.next ? (
+              <Link href={`/blog/${prevNext.next.slug}`} className="inline-flex">
+                <Button variant="outline" size="sm" className="gap-2">
+                  <span className="truncate max-w-[240px] sm:max-w-[320px]">{prevNext.next.title}</span>
                   <ChevronRight className="h-4 w-4" />
-                </Link>
-              )}
-            </div>
-          </nav>
+                </Button>
+              </Link>
+            ) : (
+              <span />
+            )}
+          </div>
         )}
 
         {/* Related posts */}
         {related.length > 0 && (
-          <section className="mt-12 no-print">
-            <h3 className="text-2xl font-semibold mb-4">Related Posts</h3>
+          <section className="mt-8 sm:mt-10">
+            <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Related Posts</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {related.map((rp) => (
                 <BlogCard key={rp.id} post={rp} />

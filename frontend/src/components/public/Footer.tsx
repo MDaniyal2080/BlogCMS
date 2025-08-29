@@ -41,12 +41,12 @@ export default function Footer() {
 
   return (
     <footer className="border-t bg-background">
-      <div className="container mx-auto px-4 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+      <div className="container mx-auto px-4 py-8 sm:py-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
           {/* About */}
-          <div>
-            <h3 className="text-lg font-semibold mb-4">{siteName}</h3>
-            <p className="text-sm text-muted-foreground">{siteDesc}</p>
+          <div className="sm:col-span-2 lg:col-span-1">
+            <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">{siteName}</h3>
+            <p className="text-xs sm:text-sm text-muted-foreground">{siteDesc}</p>
             {(contactEmail || contactPhone || contactAddress) && (
               <ul className="mt-4 space-y-1 text-sm text-muted-foreground">
                 {contactEmail && (
@@ -62,7 +62,7 @@ export default function Footer() {
 
           {/* Quick Links */}
           <div>
-            <h4 className="text-sm font-semibold mb-4">Quick Links</h4>
+            <h4 className="text-sm sm:text-base font-semibold mb-3 sm:mb-4">Quick Links</h4>
             <ul className="space-y-2">
               <li>
                 <Link href="/blog" className="text-sm text-muted-foreground hover:text-primary">
@@ -84,7 +84,7 @@ export default function Footer() {
 
           {/* Categories */}
           <div>
-            <h4 className="text-sm font-semibold mb-4">Categories</h4>
+            <h4 className="text-sm sm:text-base font-semibold mb-3 sm:mb-4">Categories</h4>
             {loadingCats ? (
               <ul className="space-y-2">
                 {Array.from({ length: 3 }).map((_, i) => (
@@ -108,8 +108,8 @@ export default function Footer() {
 
           {/* Social */}
           <div>
-            <h4 className="text-sm font-semibold mb-4">Follow Us</h4>
-            <div className="flex space-x-4">
+            <h4 className="text-sm sm:text-base font-semibold mb-3 sm:mb-4">Follow Us</h4>
+            <div className="flex flex-wrap gap-3 sm:gap-4">
               {social.map(({ key, Icon }) => {
                 const href = settings[key];
                 if (!href) return null;
@@ -123,8 +123,8 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="border-t mt-8 pt-8 text-center">
-          <p className="text-sm text-muted-foreground">
+        <div className="border-t mt-6 sm:mt-8 pt-6 sm:pt-8 text-center">
+          <p className="text-xs sm:text-sm text-muted-foreground">
             © {new Date().getFullYear()} {siteName}. All rights reserved.
           </p>
         </div>

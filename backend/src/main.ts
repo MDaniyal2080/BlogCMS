@@ -1,12 +1,32 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
-import type { Request, Response, NextFunction } from 'express';
+import type {
+  Request,
+  Response,
+  NextFunction,
+  Application,
+  RequestHandler,
+} from 'express';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
+
+type RequestWithCookies = Request & {
+  cookies?: Record<string, string | undefined>;
+};
+
+function getCookies(
+  req: RequestWithCookies,
+): Record<string, string | undefined> {
+  const raw = (req as unknown as { cookies?: unknown }).cookies;
+  if (raw && typeof raw === 'object') {
+    return raw as Record<string, string | undefined>;
+  }
+  return {};
+}
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -25,12 +45,16 @@ async function bootstrap() {
   // Disable Express x-powered-by header for security hardening
   try {
     const http = app.getHttpAdapter();
-    http.getInstance().disable('x-powered-by');
+    const expressApp = http.getInstance() as Application;
+    expressApp.disable('x-powered-by');
     if (process.env.NODE_ENV === 'production') {
       // Trust first proxy (e.g., when behind Railway/Netlify/Cloudflare) for correct IP and secure cookies
-      http.getInstance().set('trust proxy', 1);
+      expressApp.set('trust proxy', 1);
     }
-  } catch {}
+  } catch (err) {
+    // Non-fatal: adapter may not be Express in some environments
+    console.warn('Could not configure Express adapter:', err);
+  }
 
   // Global API prefix
   app.setGlobalPrefix('api');
@@ -128,7 +152,10 @@ async function bootstrap() {
     // Extra limiter for auth login to slow brute force attempts
     const AUTH_LOGIN_WINDOW_MS = Math.max(
       1,
-      Number.parseInt(process.env.AUTH_LOGIN_RATE_LIMIT_WINDOW_MS || String(15 * 60 * 1000), 10),
+      Number.parseInt(
+        process.env.AUTH_LOGIN_RATE_LIMIT_WINDOW_MS || String(15 * 60 * 1000),
+        10,
+      ),
     );
     const AUTH_LOGIN_MAX = Math.max(
       1,
@@ -147,10 +174,17 @@ async function bootstrap() {
     console.log('🔓 Rate limiting disabled');
   }
 
-  // Security middleware
-  app.use(helmet());
-  app.use(compression());
-  app.use(cookieParser());
+  // Security middleware, call via typed factory aliases
+  const helmetMw: RequestHandler = helmet();
+  const compressionMw: RequestHandler = (
+    compression as unknown as () => RequestHandler
+  )();
+  const cookieParserMw: RequestHandler = (
+    cookieParser as unknown as () => RequestHandler
+  )();
+  app.use(helmetMw);
+  app.use(compressionMw);
+  app.use(cookieParserMw);
 
   // CSRF protection (double-submit cookie) when using HttpOnly cookie auth
   // Enabled by default if AUTH_COOKIE_ENABLED=true and CSRF_PROTECTION!=false
@@ -159,22 +193,26 @@ async function bootstrap() {
   const csrfCookieName = process.env.CSRF_COOKIE_NAME || 'csrf_token';
   const csrfHeaderName = process.env.CSRF_HEADER_NAME || 'X-CSRF-Token';
   const authCookieName = process.env.AUTH_COOKIE_NAME || 'access_token';
-  const skipCsrfPaths = (process.env.CSRF_SKIP_PATHS || '/api/auth/login,/api/auth/register')
+  const skipCsrfPaths = (
+    process.env.CSRF_SKIP_PATHS || '/api/auth/login,/api/auth/register'
+  )
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
   const skipCsrfSet = new Set(skipCsrfPaths);
 
-  app.use((req: Request, res: Response, next: NextFunction) => {
+  app.use((req: RequestWithCookies, res: Response, next: NextFunction) => {
     if (!csrfEnabled || !cookieAuthEnabled) return next();
     const method = req.method.toUpperCase();
-    if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return next();
+    if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS')
+      return next();
     if (skipCsrfSet.has(req.path)) return next();
     // Enforce CSRF only for authenticated sessions (when auth cookie is present)
-    const hasAuthCookie = (req as any).cookies?.[authCookieName];
+    const cookies = getCookies(req);
+    const hasAuthCookie = cookies[authCookieName];
     if (!hasAuthCookie) return next();
     const headerToken = req.get(csrfHeaderName);
-    const cookieToken = (req as any).cookies?.[csrfCookieName];
+    const cookieToken = cookies[csrfCookieName];
     if (!headerToken || !cookieToken || headerToken !== cookieToken) {
       return res.status(403).json({ message: 'Invalid CSRF token' });
     }
@@ -214,7 +252,8 @@ async function bootstrap() {
   );
 
   const enableSwagger =
-    process.env.ENABLE_SWAGGER === 'true' || process.env.NODE_ENV !== 'production';
+    process.env.ENABLE_SWAGGER === 'true' ||
+    process.env.NODE_ENV !== 'production';
   if (enableSwagger) {
     const config = new DocumentBuilder()
       .setTitle('BlogCMS API')
@@ -230,22 +269,26 @@ async function bootstrap() {
   // Bind to 0.0.0.0 so the process is reachable inside PaaS containers (e.g., Railway)
   await app.listen(port, '0.0.0.0');
   console.log(`🚀 API server is running on http://0.0.0.0:${port}/api`);
-  console.log(`🏥 Health check available at: http://0.0.0.0:${port}/api/health`);
+  console.log(
+    `🏥 Health check available at: http://0.0.0.0:${port}/api/health`,
+  );
   if (enableSwagger) {
     console.log(`📚 API docs available at: http://0.0.0.0:${port}/api/docs`);
   }
 }
 
-bootstrap().catch((error) => {
-  console.error('❌ Failed to start application:', error);
-  console.error('Stack trace:', error.stack);
-  
+bootstrap().catch((err: unknown) => {
+  console.error('❌ Failed to start application:', err);
+  if (err instanceof Error) {
+    console.error('Stack trace:', err.stack);
+  }
+
   // Log environment info for debugging
   console.error('Environment debug info:');
   console.error('- NODE_ENV:', process.env.NODE_ENV);
   console.error('- PORT:', process.env.PORT);
   console.error('- DATABASE_URL present:', !!process.env.DATABASE_URL);
   console.error('- JWT_SECRET present:', !!process.env.JWT_SECRET);
-  
+
   process.exit(1);
 });

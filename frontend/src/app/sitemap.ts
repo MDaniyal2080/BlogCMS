@@ -87,32 +87,36 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     getAllTags(),
   ]);
 
+  const postsList = Array.isArray(posts) ? posts : [];
+  const categoriesList = Array.isArray(categories) ? categories : [];
+  const tagsList = Array.isArray(tags) ? tags : [];
+
   const urls: MetadataRoute.Sitemap = [
-    { url: `${baseUrl}/`, lastModified: new Date() },
-    { url: `${baseUrl}/blog`, lastModified: new Date() },
+    { url: `${baseUrl}/`, lastModified: new Date().toISOString() },
+    { url: `${baseUrl}/blog`, lastModified: new Date().toISOString() },
   ];
 
-  for (const p of posts) {
+  for (const p of postsList) {
     if (!p?.slug) continue;
     urls.push({
       url: `${baseUrl}/blog/${p.slug}`,
-      lastModified: new Date(p.updatedAt || p.publishedAt || p.createdAt || Date.now()),
+      lastModified: new Date(p.updatedAt || p.publishedAt || p.createdAt || Date.now()).toISOString(),
     });
   }
 
-  for (const c of categories) {
+  for (const c of categoriesList) {
     if (!c?.slug) continue;
     urls.push({
       url: `${baseUrl}/blog/category/${c.slug}`,
-      lastModified: new Date(c.updatedAt || c.createdAt || Date.now()),
+      lastModified: new Date(c.updatedAt || c.createdAt || Date.now()).toISOString(),
     });
   }
 
-  for (const t of tags) {
+  for (const t of tagsList) {
     if (!t?.slug) continue;
     urls.push({
       url: `${baseUrl}/blog/tag/${t.slug}`,
-      lastModified: new Date(t.updatedAt || t.createdAt || Date.now()),
+      lastModified: new Date(t.updatedAt || t.createdAt || Date.now()).toISOString(),
     });
   }
 

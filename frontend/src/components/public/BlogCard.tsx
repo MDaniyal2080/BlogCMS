@@ -71,7 +71,7 @@ export default function BlogCard({ post, highlight }: BlogCardProps) {
           {renderHighlighted(truncate(post.excerpt || post.content, 150), highlight)}
         </p>
       </CardContent>
-      <CardFooter className="flex justify-between text-sm text-muted-foreground">
+      <CardFooter className="flex justify-between text-xs sm:text-sm text-muted-foreground">
         <div className="flex items-center gap-4">
           <span className="flex items-center gap-1">
             <Calendar className="h-3 w-3" />
