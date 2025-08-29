@@ -5,12 +5,15 @@ RUN apk add --no-cache libc6-compat
 
 WORKDIR /app
 
-# Copy package files and install ALL dependencies
-COPY package*.json ./
-RUN npm ci --only=production=false
+# Skip app-level postinstall (we'll generate explicitly)
+ENV PRISMA_SKIP_POSTINSTALL=1
 
-# Copy Prisma schema and generate client
+# Copy package files and Prisma schema before install to allow postinstall to generate
+COPY package*.json ./
 COPY prisma ./prisma/
+RUN npm ci
+  
+# Generate Prisma client explicitly (ensures types for build)
 RUN npx prisma generate
 
 # Copy source code and build
@@ -24,16 +27,19 @@ RUN apk add --no-cache libc6-compat
 
 WORKDIR /app
 
-# Copy package files and install production deps only
-COPY package*.json ./
-RUN npm ci --only=production && npm cache clean --force
+# Skip app-level postinstall (we'll generate explicitly)
+ENV PRISMA_SKIP_POSTINSTALL=1
 
+# Copy package files and Prisma schema before install to allow postinstall to generate
+COPY package*.json ./
+COPY prisma ./prisma/
+RUN npm ci --omit=dev && npm cache clean --force
+  
+# Generate Prisma client in the production image (ensures correct binaries)
+RUN npx prisma generate
+  
 # Copy built application from builder
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/prisma ./prisma
-
-# Generate Prisma client in production image
-RUN npx prisma generate
 
 # Copy entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/
