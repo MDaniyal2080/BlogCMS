@@ -47,10 +47,32 @@ async function bootstrap() {
     const http = app.getHttpAdapter();
     const expressApp = http.getInstance() as Application;
     expressApp.disable('x-powered-by');
-    if (process.env.NODE_ENV === 'production') {
-      // Trust first proxy (e.g., when behind Railway/Netlify/Cloudflare) for correct IP and secure cookies
-      expressApp.set('trust proxy', 1);
+    // Configure trust proxy via env with safe defaults
+    // Accepts: boolean (true/false), number (hops), string (IP/CIDR/'loopback'), or comma-separated list
+    const rawTrust = process.env.TRUST_PROXY;
+    let trustProxy: boolean | number | string | string[] = false;
+    if (rawTrust && rawTrust.length > 0) {
+      const v = rawTrust.trim().toLowerCase();
+      if (v === 'true' || v === 'yes' || v === 'on' || v === 'enabled') {
+        trustProxy = true;
+      } else if (v === 'false' || v === 'no' || v === 'off' || v === 'disabled') {
+        trustProxy = false;
+      } else if (!Number.isNaN(Number.parseInt(v, 10))) {
+        trustProxy = Number.parseInt(v, 10);
+      } else if (rawTrust.includes(',')) {
+        trustProxy = rawTrust
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
+      } else {
+        trustProxy = rawTrust; // e.g., 'loopback', '127.0.0.1', subnet, etc.
+      }
+    } else {
+      // Default: trust first proxy in production; otherwise do not trust proxies
+      trustProxy = process.env.NODE_ENV === 'production' ? 1 : false;
     }
+    expressApp.set('trust proxy', trustProxy);
+    console.log('🔧 Express trust proxy set to:', trustProxy);
   } catch (err) {
     // Non-fatal: adapter may not be Express in some environments
     console.warn('Could not configure Express adapter:', err);
