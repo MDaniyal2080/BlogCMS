@@ -51,4 +51,6 @@ RUN mkdir -p /app/uploads
 
 EXPOSE 3001
 
-CMD ["/usr/local/bin/docker-entrypoint.sh"]
+# Always run our entrypoint (handles migrations) and then start the app
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+CMD ["node", "dist/main.js"]
