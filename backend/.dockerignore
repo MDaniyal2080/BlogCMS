@@ -1,6 +1,7 @@
 node_modules
 npm-debug.log
-# dist folder needed for production
+# IMPORTANT: Ignore dist in context to prevent Nixpacks' final COPY from clobbering build output
+dist/
 .env*
 !.env.example
 .git

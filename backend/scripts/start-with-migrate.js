@@ -38,29 +38,38 @@ function runMigrations() {
 runMigrations();
 
 // Start the compiled Nest app in the foreground, building if necessary
-function startApp() {
-  const mainPath = path.resolve(__dirname, '..', 'dist', 'main.js');
-  if (!fs.existsSync(mainPath)) {
-    console.warn('[start] dist/main.js not found; running build first...');
-    const build = spawn('npm', ['run', 'build'], { stdio: 'inherit', shell: true });
-    build.on('exit', (code) => {
-      if (code === 0) {
-        console.log('[start] build completed. Starting application...');
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        require('../dist/main');
-      } else {
-        console.error(`[start] build failed with code ${code}`);
-        process.exit(code || 1);
-      }
-    });
-    build.on('error', (err) => {
-      console.error('[start] build failed to spawn:', err?.message || err);
-      process.exit(1);
-    });
-    return;
+function startWithTsNode() {
+  try {
+    console.warn('[start] falling back to ts-node execution...');
+    // Register ts-node to execute TypeScript directly
+    require('ts-node/register');
+    const srcEntry = path.resolve(__dirname, '..', 'src', 'main.ts');
+    console.log(`[start] using ts-node entry: ${srcEntry}`);
+    require(srcEntry);
+  } catch (err) {
+    console.error('[start] ts-node fallback failed:', err?.message || err);
+    process.exit(1);
   }
+}
+
+function startApp() {
+  const candidates = [
+    path.resolve(__dirname, '..', 'dist', 'main.js'),
+    path.resolve(__dirname, '..', 'dist', 'src', 'main.js'),
+  ];
+  const hasAny = candidates.some((p) => fs.existsSync(p));
+  if (!hasAny) {
+    console.warn('[start] no dist entry found; using ts-node fallback.');
+    return startWithTsNode();
+  }
+  const resolved = candidates.find((p) => fs.existsSync(p));
+  if (!resolved) {
+    console.warn('[start] No dist entry present; using ts-node fallback.');
+    return startWithTsNode();
+  }
+  console.log(`[start] using entry: ${resolved}`);
   // eslint-disable-next-line @typescript-eslint/no-var-requires
-  require('../dist/main');
+  require(resolved);
 }
 
 startApp();
