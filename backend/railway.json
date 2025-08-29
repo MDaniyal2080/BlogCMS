@@ -5,7 +5,7 @@
     "buildCommand": "npm ci && npx prisma generate && npm run build"
   },
   "deploy": {
-    "startCommand": "npm run start:railway",
+    "startCommand": "/usr/local/bin/docker-entrypoint.sh",
     "healthcheckPath": "/api/health",
     "healthcheckTimeout": 300,
     "restartPolicyType": "ON_FAILURE",

@@ -33,13 +33,14 @@ ENV PRISMA_SKIP_POSTINSTALL=1
 # Copy package files and Prisma schema before install to allow postinstall to generate
 COPY package*.json ./
 COPY prisma ./prisma/
-RUN npm ci --omit=dev && npm cache clean --force
+RUN npm ci && npm cache clean --force
   
 # Generate Prisma client in the production image (ensures correct binaries)
 RUN npx prisma generate
   
 # Copy built application from builder
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/scripts ./scripts
 
 # Copy entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/
