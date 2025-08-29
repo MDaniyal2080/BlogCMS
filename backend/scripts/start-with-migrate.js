@@ -5,6 +5,8 @@
 */
 
 const { spawn } = require('child_process');
+const fs = require('fs');
+const path = require('path');
 
 function runMigrations() {
   try {
@@ -35,5 +37,30 @@ function runMigrations() {
 
 runMigrations();
 
-// Start the compiled Nest app in the foreground
-require('../dist/main');
+// Start the compiled Nest app in the foreground, building if necessary
+function startApp() {
+  const mainPath = path.resolve(__dirname, '..', 'dist', 'main.js');
+  if (!fs.existsSync(mainPath)) {
+    console.warn('[start] dist/main.js not found; running build first...');
+    const build = spawn('npm', ['run', 'build'], { stdio: 'inherit', shell: true });
+    build.on('exit', (code) => {
+      if (code === 0) {
+        console.log('[start] build completed. Starting application...');
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        require('../dist/main');
+      } else {
+        console.error(`[start] build failed with code ${code}`);
+        process.exit(code || 1);
+      }
+    });
+    build.on('error', (err) => {
+      console.error('[start] build failed to spawn:', err?.message || err);
+      process.exit(1);
+    });
+    return;
+  }
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  require('../dist/main');
+}
+
+startApp();
