@@ -1,13 +1,25 @@
 import type { NextConfig } from "next";
 
-const IMG_HOST = process.env.NEXT_PUBLIC_API_HOST;
+// Derive backend origin from env (fall back to local dev)
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+let API_ORIGIN = 'http://localhost:3001';
+let BACKEND_HOST = 'localhost';
+try {
+  const u = new URL(API_URL);
+  API_ORIGIN = `${u.protocol}//${u.host}`;
+  BACKEND_HOST = u.hostname;
+} catch {}
 
 const nextConfig: NextConfig = {
-  output: 'standalone',
   images: {
     formats: ['image/avif', 'image/webp'],
-    minimumCacheTTL: 86400, // 1 day for optimized images
-    domains: ['images.unsplash.com'],
+    // Allow common domains plus backend host derived from API URL
+    domains: Array.from(new Set([
+      'images.unsplash.com',
+      'localhost',
+      '127.0.0.1',
+      BACKEND_HOST,
+    ].filter(Boolean))) as string[],
     remotePatterns: [
       {
         protocol: 'http',
@@ -26,53 +38,34 @@ const nextConfig: NextConfig = {
         hostname: 'images.unsplash.com',
         pathname: '/**',
       },
-      // Optional production host via env NEXT_PUBLIC_API_HOST
-      ...(IMG_HOST
-        ? [
-            {
-              protocol: 'https',
-              hostname: IMG_HOST,
-              pathname: '/uploads/**',
-            } as const,
-          ]
-        : []),
     ],
   },
   async headers() {
+    const baseHeaders = [
+      { key: 'X-Frame-Options', value: 'DENY' },
+      { key: 'X-Content-Type-Options', value: 'nosniff' },
+      { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+      { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+    ];
+    if (process.env.NODE_ENV === 'production') {
+      baseHeaders.push({ key: 'Strict-Transport-Security', value: 'max-age=15552000; includeSubDomains' });
+    }
     return [
-      // Cache Next.js static assets for a year
       {
-        source: '/_next/static/(.*)',
-        headers: [
-          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
-        ],
+        source: '/:path*',
+        headers: baseHeaders,
       },
-      // Cache optimized images (served from /_next/image)
+    ];
+  },
+  async rewrites() {
+    return [
       {
-        source: '/_next/image(.*)',
-        headers: [
-          { key: 'Cache-Control', value: 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800' },
-        ],
-      },
-      // Cache common static file extensions served from /public
-      {
-        source: '/:all*(svg|png|jpg|jpeg|gif|webp|avif|ico|css|js|woff2)',
-        headers: [
-          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
-        ],
-      },
-      // Cache sitemap and robots for 10 minutes at the edge
-      {
-        source: '/sitemap.xml',
-        headers: [
-          { key: 'Cache-Control', value: 'public, s-maxage=600, stale-while-revalidate=86400' },
-        ],
+        source: '/api/:path*',
+        destination: `${API_ORIGIN}/api/:path*`,
       },
       {
-        source: '/robots.txt',
-        headers: [
-          { key: 'Cache-Control', value: 'public, s-maxage=600, stale-while-revalidate=86400' },
-        ],
+        source: '/uploads/:path*',
+        destination: `${API_ORIGIN}/uploads/:path*`,
       },
     ];
   },

@@ -22,8 +22,13 @@ export class HealthController {
     try {
       // Test database connection with timeout
       const dbPromise = this.prisma.$queryRaw`SELECT 1`;
+      // Allow configuration via env, clamp to sane bounds (1s–15s)
+      const dbTimeoutMs = Math.min(
+        15000,
+        Math.max(1000, Number(process.env.DB_CONNECT_TIMEOUT_MS || '5000')),
+      );
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Database timeout')), 5000)
+        setTimeout(() => reject(new Error('Database timeout')), dbTimeoutMs)
       );
 
       await Promise.race([dbPromise, timeoutPromise]);

@@ -37,7 +37,12 @@ export const auth = {
       };
 
       // Persist cookies based on rememberMe (session cookie when false)
-      setCookie('token', access_token, rememberMe ? 30 : undefined);
+      // If using cookie-based auth (withCredentials), the server sets HttpOnly cookie.
+      // Avoid duplicating the token in a readable cookie.
+      const SEND_CREDENTIALS = process.env.NEXT_PUBLIC_SEND_CREDENTIALS === 'true';
+      if (!SEND_CREDENTIALS) {
+        setCookie('token', access_token, rememberMe ? 30 : undefined);
+      }
       setCookie('user', JSON.stringify(normalizedUser), rememberMe ? 30 : undefined);
 
       return { success: true, user: normalizedUser };
@@ -91,6 +96,11 @@ export const auth = {
   },
 
   isAuthenticated: (): boolean => {
+    const SEND_CREDENTIALS = process.env.NEXT_PUBLIC_SEND_CREDENTIALS === 'true';
+    if (SEND_CREDENTIALS) {
+      // In cookie mode, client cannot read HttpOnly cookie; rely on presence of user cookie
+      return !!getCookie('user');
+    }
     return !!getCookie('token');
   },
 

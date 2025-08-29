@@ -3,6 +3,10 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import type { Request, Response, NextFunction } from 'express';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import helmet from 'helmet';
+import compression from 'compression';
+import cookieParser from 'cookie-parser';
+import rateLimit from 'express-rate-limit';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -17,6 +21,18 @@ async function bootstrap() {
   console.log('🔧 Port:', process.env.PORT || '3001');
   console.log('🔧 Database URL configured:', !!process.env.DATABASE_URL);
   console.log('🔧 JWT Secret configured:', !!process.env.JWT_SECRET);
+
+  // Disable Express x-powered-by header for security hardening
+  try {
+    const http = app.getHttpAdapter();
+    http.getInstance().disable('x-powered-by');
+    if (process.env.NODE_ENV === 'production') {
+      // Trust first proxy (e.g., when behind Railway/Netlify/Cloudflare) for correct IP and secure cookies
+      http.getInstance().set('trust proxy', 1);
+    }
+  } catch {}
+
+  // Global API prefix
   app.setGlobalPrefix('api');
   // Build a CORS allowlist from env (comma-separated)
   const rawOrigins =
@@ -29,6 +45,15 @@ async function bootstrap() {
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
+
+  // Merge explicit FRONTEND_URL/CLIENT_URL into allowlist
+  for (const key of ['FRONTEND_URL', 'CLIENT_URL'] as const) {
+    const v = process.env[key];
+    if (v && !allowedOrigins.includes(v)) allowedOrigins.push(v);
+  }
+
+  // Respect custom CSRF header name for CORS
+  const csrfHeaderNameCors = process.env.CSRF_HEADER_NAME || 'X-CSRF-Token';
 
   app.enableCors({
     origin: (
@@ -53,11 +78,110 @@ async function bootstrap() {
       'Content-Type',
       'Authorization',
       'X-Requested-With',
-      'X-CSRF-Token',
+      csrfHeaderNameCors,
     ],
   });
 
-  // Minimal security headers without external deps (Helmet optional later)
+  // Optional: Global rate limiting for abuse protection (configurable via env)
+  const enableRateLimiting = process.env.ENABLE_RATE_LIMITING === 'true';
+  const RATE_LIMIT_TTL = Math.max(
+    1,
+    Number.parseInt(process.env.RATE_LIMIT_TTL || '60', 10) || 60,
+  );
+  const RATE_LIMIT_LIMIT = Math.max(
+    1,
+    Number.parseInt(process.env.RATE_LIMIT_LIMIT || '100', 10) || 100,
+  );
+  const SEARCH_RATE_LIMIT_TTL = Math.max(
+    1,
+    Number.parseInt(
+      process.env.SEARCH_RATE_LIMIT_TTL || String(RATE_LIMIT_TTL),
+      10,
+    ) || RATE_LIMIT_TTL,
+  );
+  const SEARCH_RATE_LIMIT_LIMIT = Math.max(
+    1,
+    Number.parseInt(process.env.SEARCH_RATE_LIMIT_LIMIT || '30', 10) || 30,
+  );
+  if (enableRateLimiting) {
+    console.log(
+      `🔒 Rate limiting enabled (ttl=${RATE_LIMIT_TTL}s, limit=${RATE_LIMIT_LIMIT})`,
+    );
+    app.use(
+      rateLimit({
+        windowMs: RATE_LIMIT_TTL * 1000,
+        max: RATE_LIMIT_LIMIT,
+        standardHeaders: true,
+        legacyHeaders: false,
+      }),
+    );
+    // Tighter limits for search endpoints
+    app.use(
+      '/api/posts/search',
+      rateLimit({
+        windowMs: SEARCH_RATE_LIMIT_TTL * 1000,
+        max: SEARCH_RATE_LIMIT_LIMIT,
+        standardHeaders: true,
+        legacyHeaders: false,
+      }),
+    );
+    // Extra limiter for auth login to slow brute force attempts
+    const AUTH_LOGIN_WINDOW_MS = Math.max(
+      1,
+      Number.parseInt(process.env.AUTH_LOGIN_RATE_LIMIT_WINDOW_MS || String(15 * 60 * 1000), 10),
+    );
+    const AUTH_LOGIN_MAX = Math.max(
+      1,
+      Number.parseInt(process.env.AUTH_LOGIN_RATE_LIMIT_MAX || '10', 10),
+    );
+    app.use(
+      '/api/auth/login',
+      rateLimit({
+        windowMs: AUTH_LOGIN_WINDOW_MS,
+        max: AUTH_LOGIN_MAX,
+        standardHeaders: true,
+        legacyHeaders: false,
+      }),
+    );
+  } else {
+    console.log('🔓 Rate limiting disabled');
+  }
+
+  // Security middleware
+  app.use(helmet());
+  app.use(compression());
+  app.use(cookieParser());
+
+  // CSRF protection (double-submit cookie) when using HttpOnly cookie auth
+  // Enabled by default if AUTH_COOKIE_ENABLED=true and CSRF_PROTECTION!=false
+  const csrfEnabled = process.env.CSRF_PROTECTION !== 'false';
+  const cookieAuthEnabled = process.env.AUTH_COOKIE_ENABLED === 'true';
+  const csrfCookieName = process.env.CSRF_COOKIE_NAME || 'csrf_token';
+  const csrfHeaderName = process.env.CSRF_HEADER_NAME || 'X-CSRF-Token';
+  const authCookieName = process.env.AUTH_COOKIE_NAME || 'access_token';
+  const skipCsrfPaths = (process.env.CSRF_SKIP_PATHS || '/api/auth/login,/api/auth/register')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const skipCsrfSet = new Set(skipCsrfPaths);
+
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (!csrfEnabled || !cookieAuthEnabled) return next();
+    const method = req.method.toUpperCase();
+    if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return next();
+    if (skipCsrfSet.has(req.path)) return next();
+    // Enforce CSRF only for authenticated sessions (when auth cookie is present)
+    const hasAuthCookie = (req as any).cookies?.[authCookieName];
+    if (!hasAuthCookie) return next();
+    const headerToken = req.get(csrfHeaderName);
+    const cookieToken = (req as any).cookies?.[csrfCookieName];
+    if (!headerToken || !cookieToken || headerToken !== cookieToken) {
+      return res.status(403).json({ message: 'Invalid CSRF token' });
+    }
+    return next();
+  });
+
+  // Optional: extra headers and CSP override via env
   app.use((req: Request, res: Response, next: NextFunction) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
@@ -89,21 +213,27 @@ async function bootstrap() {
     }),
   );
 
-  const config = new DocumentBuilder()
-    .setTitle('BlogCMS API')
-    .setDescription('API documentation for BlogCMS')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
+  const enableSwagger =
+    process.env.ENABLE_SWAGGER === 'true' || process.env.NODE_ENV !== 'production';
+  if (enableSwagger) {
+    const config = new DocumentBuilder()
+      .setTitle('BlogCMS API')
+      .setDescription('API documentation for BlogCMS')
+      .setVersion('1.0')
+      .addBearerAuth()
+      .build();
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api/docs', app, document);
+  }
 
   const port = process.env.PORT ? Number(process.env.PORT) : 3001;
   // Bind to 0.0.0.0 so the process is reachable inside PaaS containers (e.g., Railway)
   await app.listen(port, '0.0.0.0');
   console.log(`🚀 API server is running on http://0.0.0.0:${port}/api`);
   console.log(`🏥 Health check available at: http://0.0.0.0:${port}/api/health`);
-  console.log(`📚 API docs available at: http://0.0.0.0:${port}/api/docs`);
+  if (enableSwagger) {
+    console.log(`📚 API docs available at: http://0.0.0.0:${port}/api/docs`);
+  }
 }
 
 bootstrap().catch((error) => {

@@ -5,6 +5,7 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import type { Response } from 'express';
 import { ConfigService } from '@nestjs/config';
+import { randomBytes } from 'node:crypto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -55,6 +56,19 @@ export class AuthController {
         ...(domain ? { domain } : {}),
         ...(remember ? { maxAge: rememberMax } : {}),
       });
+
+      // Issue a CSRF token (double-submit cookie) alongside the auth cookie
+      const csrfCookieName: string =
+        this.config.get<string>('CSRF_COOKIE_NAME') ?? 'csrf_token';
+      const csrfToken = randomBytes(32).toString('hex');
+      res.cookie(csrfCookieName, csrfToken, {
+        httpOnly: false,
+        sameSite,
+        secure,
+        path: '/',
+        ...(domain ? { domain } : {}),
+        ...(remember ? { maxAge: rememberMax } : {}),
+      });
     }
     return result;
   }
@@ -76,6 +90,18 @@ export class AuthController {
         this.config.get<string>('AUTH_COOKIE_DOMAIN') || undefined;
       res.cookie(name, '', {
         httpOnly: true,
+        sameSite,
+        secure,
+        path: '/',
+        ...(domain ? { domain } : {}),
+        maxAge: 0,
+      });
+
+      // Clear CSRF cookie as well
+      const csrfCookieName: string =
+        this.config.get<string>('CSRF_COOKIE_NAME') ?? 'csrf_token';
+      res.cookie(csrfCookieName, '', {
+        httpOnly: false,
         sameSite,
         secure,
         path: '/',

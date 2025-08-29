@@ -2,7 +2,8 @@ import { NextResponse, NextRequest } from 'next/server';
 
 export function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
-  const token = req.cookies.get('token')?.value;
+  // Support both client-side token cookie and server-set HttpOnly cookie name
+  const token = req.cookies.get('token')?.value || req.cookies.get('access_token')?.value;
   const userCookie = req.cookies.get('user')?.value;
   let role: 'admin' | 'editor' | undefined;
   if (userCookie) {
@@ -38,6 +39,7 @@ export function middleware(req: NextRequest) {
       const res = NextResponse.redirect(loginUrl);
       // Clear stale cookies if expired or missing
       res.cookies.set('token', '', { expires: new Date(0) });
+      res.cookies.set('access_token', '', { expires: new Date(0), httpOnly: true });
       res.cookies.set('user', '', { expires: new Date(0) });
       return res;
     }

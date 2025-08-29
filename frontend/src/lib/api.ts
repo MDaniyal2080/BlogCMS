@@ -1,11 +1,13 @@
 import axios from 'axios';
 import type { Post, Category, Tag, Setting } from '@/types';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 const SEND_CREDENTIALS = process.env.NEXT_PUBLIC_SEND_CREDENTIALS === 'true';
+const CSRF_HEADER_NAME = process.env.NEXT_PUBLIC_CSRF_HEADER_NAME || 'X-CSRF-Token';
+const CSRF_COOKIE_NAME = process.env.NEXT_PUBLIC_CSRF_COOKIE_NAME || 'csrf_token';
 
 const api = axios.create({
-  baseURL: API_URL,
+  baseURL: API_BASE,
   withCredentials: SEND_CREDENTIALS,
   headers: {
     'Content-Type': 'application/json',
@@ -31,12 +33,25 @@ const deleteCookie = (name: string) => {
   document.cookie = `${name}=; Max-Age=0; Path=/${sameSite}${secure}`;
 };
 
-// Request interceptor to add auth token
+// Request interceptor to add auth token and CSRF header when needed
 api.interceptors.request.use(
   (config) => {
-    const token = getCookie('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    // If not using cookie-based auth, attach Bearer token from client cookie
+    if (!SEND_CREDENTIALS) {
+      const token = getCookie('token');
+      if (token) {
+        (config.headers as any).Authorization = `Bearer ${token}`;
+      }
+    }
+
+    // For state-changing requests with cookie-based auth, add CSRF header
+    const method = String(config.method || 'get').toLowerCase();
+    const isSafe = method === 'get' || method === 'head' || method === 'options';
+    if (SEND_CREDENTIALS && !isSafe) {
+      const csrf = getCookie(CSRF_COOKIE_NAME);
+      if (csrf) {
+        (config.headers as any)[CSRF_HEADER_NAME] = csrf;
+      }
     }
     // Notify global loader that a request started
     if (typeof window !== 'undefined') {
@@ -236,9 +251,14 @@ export const newsletterAPI = {
 
 // Public origin for assets (e.g., /uploads/*) derived from API base URL
 // If NEXT_PUBLIC_API_URL is http://localhost:3001/api -> origin is http://localhost:3001
-export const API_ORIGIN = (
-  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'
-).replace(/\/api$/, '');
+export const API_ORIGIN = (() => {
+  try {
+    const u = new URL(API_BASE);
+    return `${u.protocol}//${u.host}`;
+  } catch {
+    return 'http://localhost:3001';
+  }
+})();
 
 // Resolve a possibly relative URL (e.g., "/uploads/avatars/...") to an absolute URL on the backend origin
 export const toAbsoluteUrl = (url: string | undefined): string => {

@@ -26,11 +26,3 @@
   for = "/_next/image"
   [headers.values]
     Cache-Control = "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800"
-
-[[redirects]]
-  from = "/api/*"
-  to = "https://your-backend.up.railway.app/api/:splat"
-  status = 200
-  force = true
-  [redirects.headers]
-    X-From = "Netlify"
