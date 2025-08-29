@@ -1,6 +1,6 @@
 node_modules
 npm-debug.log
-dist
+# dist folder needed for production
 .env*
 !.env.example
 .git
