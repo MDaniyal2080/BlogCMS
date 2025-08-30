@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useMemo } from 'react';
+import { assetUrlFromApiBase } from '@/lib/assetUrl';
 
 export type SettingsMap = Record<string, string>;
 
@@ -50,17 +51,7 @@ export function SettingsProvider({
       if (nk in normalized) return normalized[nk];
       return fallback;
     };
-    const assetUrl = (url?: string) => {
-      let u = (url || '').trim();
-      if (!u) return '';
-      if (/^(https?:)?\/\//i.test(u)) return u;
-      if (u.startsWith('data:')) return u;
-      // Ensure a single leading slash
-      if (!u.startsWith('/')) u = `/${u}`;
-      // If someone stored an older value like /api/uploads/..., strip the leading /api
-      u = u.replace(/^\/api\/(?=uploads\/)/, '/');
-      return `${API_BASE}${u}`;
-    };
+    const assetUrl = (url?: string) => assetUrlFromApiBase(url, API_BASE);
     return { settings: normalized, apiBase: API_BASE, get, assetUrl };
   }, [API_BASE, initialSettings]);
 

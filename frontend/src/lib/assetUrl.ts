@@ -12,8 +12,10 @@ export function normalizeAssetPath(url?: string): string {
   if (/^(https?:)?\/\//i.test(u)) return u; // http, https, or protocol-relative
   if (u.startsWith('data:')) return u; // data URL
   if (!u.startsWith('/')) u = `/${u}`;
-  // Strip legacy /api prefix for uploaded assets
-  u = u.replace(/^\/api\/(?=uploads\/)/, '/');
+  // Strip legacy /api prefix for uploaded assets (tolerate accidental double slashes)
+  u = u.replace(/^\/api\/+uploads\//, '/uploads/');
+  // Collapse duplicate slashes in relative paths
+  u = u.replace(/\/{2,}/g, '/');
   return u;
 }
 
@@ -34,7 +36,11 @@ export function apiBaseFromRaw(rawApiUrl?: string): string {
 export function assetUrlFromApiBase(url?: string, apiBase?: string): string {
   const p = normalizeAssetPath(url);
   if (!p) return '';
-  if (/^(https?:)?\/\//i.test(p) || p.startsWith('data:')) return p;
+  if (p.startsWith('data:')) return p;
+  if (/^(https?:)?\/\//i.test(p)) {
+    // Fix legacy absolute URLs like https://host/api//uploads/... -> https://host/uploads/...
+    return p.replace(/^(https?:\/\/[^\/]+)\/api\/+uploads\//i, '$1/uploads/');
+  }
   const base = (apiBase || '').trim();
   return base ? `${base}${p}` : p;
 }
@@ -43,7 +49,11 @@ export function assetUrlFromApiBase(url?: string, apiBase?: string): string {
 export function assetUrl(url?: string, rawApiUrl?: string): string {
   const p = normalizeAssetPath(url);
   if (!p) return '';
-  if (/^(https?:)?\/\//i.test(p) || p.startsWith('data:')) return p;
+  if (p.startsWith('data:')) return p;
+  if (/^(https?:)?\/\//i.test(p)) {
+    // Fix legacy absolute URLs like https://host/api//uploads/... -> https://host/uploads/...
+    return p.replace(/^(https?:\/\/[^\/]+)\/api\/+uploads\//i, '$1/uploads/');
+  }
   const base = apiBaseFromRaw(rawApiUrl);
   return base ? `${base}${p}` : p;
 }

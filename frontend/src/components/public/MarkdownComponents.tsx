@@ -1,6 +1,7 @@
 import React from 'react';
 import type { Components } from 'react-markdown';
 import { createLowlight, common } from 'lowlight';
+import { assetUrl } from '@/lib/assetUrl';
 
 // Lowlight instance with common grammars
 const lowlight = createLowlight(common);
@@ -81,6 +82,19 @@ export const markdownComponents: Components = {
       >
         {children}
       </a>
+    );
+  },
+  img({ src, alt, ...props }: React.ImgHTMLAttributes<HTMLImageElement>) {
+    const normalized = typeof src === 'string' ? assetUrl(src) : undefined;
+    return (
+      // Use native img for markdown content; Next/Image is not necessary here
+      <img
+        src={normalized}
+        alt={typeof alt === 'string' ? alt : ''}
+        loading="lazy"
+        decoding="async"
+        {...props}
+      />
     );
   },
 };

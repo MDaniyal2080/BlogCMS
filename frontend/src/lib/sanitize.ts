@@ -1,5 +1,6 @@
 // Lightweight client-side HTML sanitizer for rendering trusted content safely in the browser.
 // This is a defense-in-depth layer. Server-side sanitization is also performed.
+import { assetUrl } from './assetUrl';
 export function sanitizeHtml(input: string): string {
   if (typeof window === 'undefined') return String(input || '');
   if (!input) return '';
@@ -51,6 +52,21 @@ export function sanitizeHtml(input: string): string {
         }
       }
 
+      // Normalize embedded asset URLs for images to avoid legacy /api//uploads and duplicate slashes.
+      // Only touch <img src> and known asset-like paths to avoid rewriting internal links.
+      if (tag === 'img' && el.hasAttribute('src')) {
+        const original = (el.getAttribute('src') || '').trim();
+        if (original) {
+          // If it's an uploads path (with or without legacy /api) OR any absolute URL, normalize via assetUrl
+          if (/^\/?(?:api\/+)?uploads\//i.test(original) || /^(https?:)?\/\//i.test(original)) {
+            const fixed = assetUrl(original);
+            if (fixed && fixed !== original) {
+              el.setAttribute('src', fixed);
+            }
+          }
+        }
+      }
+
       for (const child of Array.from(el.children)) walk(child);
     };
 
@@ -66,3 +82,4 @@ export function sanitizeHtml(input: string): string {
     return txt.innerHTML;
   }
 }
+
