@@ -1,7 +1,10 @@
 import axios from 'axios';
 import type { Post, Category, Tag, Setting } from '@/types';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+// Always call the API via same-origin to ensure cookies are set for the site domain.
+// The reverse proxy (Next.js rewrites) will forward to the real backend origin.
+const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const API_BASE = '/api';
 const SEND_CREDENTIALS = process.env.NEXT_PUBLIC_SEND_CREDENTIALS === 'true';
 const CSRF_HEADER_NAME = process.env.NEXT_PUBLIC_CSRF_HEADER_NAME || 'X-CSRF-Token';
 const CSRF_COOKIE_NAME = process.env.NEXT_PUBLIC_CSRF_COOKIE_NAME || 'csrf_token';
@@ -12,6 +15,8 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  // Avoid indefinite pending UI if an upstream proxy/network stalls
+  timeout: 15000,
 });
 
 // Browser-safe cookie helpers (avoid importing js-cookie on the server)
@@ -249,11 +254,11 @@ export const newsletterAPI = {
   subscribe: (data: { email: string; honeypot?: string }) => api.post('/newsletter/subscribe', data),
 };
 
-// Public origin for assets (e.g., /uploads/*) derived from API base URL
+// Public origin for assets (e.g., /uploads/*) derived from absolute API URL
 // If NEXT_PUBLIC_API_URL is http://localhost:3001/api -> origin is http://localhost:3001
 export const API_ORIGIN = (() => {
   try {
-    const u = new URL(API_BASE);
+    const u = new URL(RAW_API_URL);
     return `${u.protocol}//${u.host}`;
   } catch {
     return 'http://localhost:3001';
