@@ -58,7 +58,7 @@ export function SettingsProvider({
       // Ensure a single leading slash
       if (!u.startsWith('/')) u = `/${u}`;
       // If someone stored an older value like /api/uploads/..., strip the leading /api
-      u = u.replace(/^\/api\/(?=uploads\//), '/');
+      u = u.replace(/^\/api\/(?=uploads\/)/, '/');
       return `${API_BASE}${u}`;
     };
     return { settings: normalized, apiBase: API_BASE, get, assetUrl };

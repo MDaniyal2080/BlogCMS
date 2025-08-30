@@ -13,7 +13,7 @@ export function normalizeAssetPath(url?: string): string {
   if (u.startsWith('data:')) return u; // data URL
   if (!u.startsWith('/')) u = `/${u}`;
   // Strip legacy /api prefix for uploaded assets
-  u = u.replace(/^\/api\/(?=uploads\//), '/');
+  u = u.replace(/^\/api\/(?=uploads\/)/, '/');
   return u;
 }
 
