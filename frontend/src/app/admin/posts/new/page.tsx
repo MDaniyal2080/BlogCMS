@@ -12,6 +12,7 @@ import { Category, Tag } from '@/types';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { markdownComponents } from '@/components/public/MarkdownComponents';
+import { useSettings } from '@/components/public/SettingsContext';
 
 const PostEditor = dynamic(() => import('@/components/admin/PostEditor'), {
   ssr: false,
@@ -19,6 +20,7 @@ const PostEditor = dynamic(() => import('@/components/admin/PostEditor'), {
 
 export default function NewPostPage() {
   const router = useRouter();
+  const { assetUrl } = useSettings();
   const [title, setTitle] = useState('');
   const [excerpt, setExcerpt] = useState('');
   const [content, setContent] = useState('');
@@ -44,7 +46,6 @@ export default function NewPostPage() {
 
   const lastSnapshotRef = useRef<string>('');
   const featuredFileInputRef = useRef<HTMLInputElement>(null);
-  const apiOrigin = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/api$/, '');
 
   useEffect(() => {
     fetchCategoriesAndTags();
@@ -273,7 +274,7 @@ export default function NewPostPage() {
                         try {
                           const res = await uploadAPI.uploadCover(file);
                           const url: string = res.data?.url || '';
-                          const fullUrl = url.startsWith('http') ? url : `${apiOrigin}${url}`;
+                          const fullUrl = assetUrl(url);
                           setFeaturedImage(fullUrl);
                         } catch (err) {
                           console.error('Cover image upload failed', err);

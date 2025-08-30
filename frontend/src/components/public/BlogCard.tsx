@@ -14,10 +14,9 @@ interface BlogCardProps {
 }
 
 export default function BlogCard({ post, highlight }: BlogCardProps) {
-  const { settings } = useSettings();
+  const { settings, assetUrl } = useSettings();
   const tz = settings.timezone || 'UTC';
-  const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/api$/, '');
-  const imgSrc = post.featuredImage && (post.featuredImage.startsWith('http') ? post.featuredImage : `${API_BASE}${post.featuredImage}`);
+  const imgSrc = assetUrl(post.featuredImage || '');
 
   const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const renderHighlighted = (text: string, q?: string) => {

@@ -3,7 +3,6 @@ import type { Post, Category, Tag, Setting } from '@/types';
 
 // Always call the API via same-origin to ensure cookies are set for the site domain.
 // The reverse proxy (Next.js rewrites) will forward to the real backend origin.
-const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 const API_BASE = '/api';
 const SEND_CREDENTIALS = process.env.NEXT_PUBLIC_SEND_CREDENTIALS === 'true';
 const CSRF_HEADER_NAME = process.env.NEXT_PUBLIC_CSRF_HEADER_NAME || 'X-CSRF-Token';
@@ -252,23 +251,6 @@ export const profileAPI = {
 // Newsletter API
 export const newsletterAPI = {
   subscribe: (data: { email: string; honeypot?: string }) => api.post('/newsletter/subscribe', data),
-};
-
-// Public origin for assets (e.g., /uploads/*) derived from absolute API URL
-// If NEXT_PUBLIC_API_URL is http://localhost:3001/api -> origin is http://localhost:3001
-export const API_ORIGIN = (() => {
-  try {
-    const u = new URL(RAW_API_URL);
-    return `${u.protocol}//${u.host}`;
-  } catch {
-    return 'http://localhost:3001';
-  }
-})();
-
-// Resolve a possibly relative URL (e.g., "/uploads/avatars/...") to an absolute URL on the backend origin
-export const toAbsoluteUrl = (url: string | undefined): string => {
-  if (!url) return '';
-  return url.startsWith('http') ? url : `${API_ORIGIN}${url}`;
 };
 
 export default api;

@@ -29,6 +29,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { uploadAPI } from '@/lib/api';
+import { useSettings } from '@/components/public/SettingsContext';
 
 interface PostEditorProps {
   content: string;
@@ -89,9 +90,7 @@ function PostEditorInner({ content, onChange }: PostEditorProps) {
   const moreBtnRef = useRef<HTMLButtonElement>(null);
   const firstMenuItemRef = useRef<HTMLButtonElement>(null);
   const fullscreenBtnRef = useRef<HTMLButtonElement>(null);
-
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-  const apiOrigin = apiUrl.endsWith('/api') ? apiUrl.slice(0, -4) : apiUrl;
+  const { assetUrl } = useSettings();
 
   const onUploadClick = () => fileInputRef.current?.click();
 
@@ -104,7 +103,7 @@ function PostEditorInner({ content, onChange }: PostEditorProps) {
       setUploadError(null);
       const res = await uploadAPI.uploadImage(file);
       const url: string = res.data?.url || '';
-      const fullUrl = url.startsWith('http') ? url : `${apiOrigin}${url}`;
+      const fullUrl = assetUrl(url);
       if (editor) {
         const alt = window.prompt('Image alt text (optional)', '') || '';
         editor.chain().focus().setImage({ src: fullUrl, alt }).run();

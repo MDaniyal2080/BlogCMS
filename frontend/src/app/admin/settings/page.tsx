@@ -8,8 +8,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Save } from 'lucide-react';
+import { useSettings } from '@/components/public/SettingsContext';
 
 export default function SettingsPage() {
+  const { assetUrl } = useSettings();
   const [settings, setSettings] = useState<Setting[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -63,10 +65,6 @@ export default function SettingsPage() {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '_')
       .replace(/^_+|_+$/g, '');
-
-  // Helper to resolve absolute URL for uploaded assets
-  const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/?api\/?$/, '');
-  const resolveUrl = (url?: string) => (url ? (url.startsWith('http') ? url : `${API_BASE}${url}`) : '');
 
   const isValidUrl = (value: string) => {
     try {
@@ -457,7 +455,7 @@ export default function SettingsPage() {
               </div>
               {formData.site_logo_url && (
                 <Image
-                  src={resolveUrl(formData.site_logo_url)}
+                  src={assetUrl(formData.site_logo_url)}
                   alt="Logo preview"
                   width={48}
                   height={48}
@@ -478,7 +476,7 @@ export default function SettingsPage() {
               </div>
               {formData.favicon_url && (
                 <Image
-                  src={resolveUrl(formData.favicon_url)}
+                  src={assetUrl(formData.favicon_url)}
                   alt="Favicon preview"
                   width={32}
                   height={32}

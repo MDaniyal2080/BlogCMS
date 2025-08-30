@@ -22,7 +22,8 @@ export function SettingsProvider({
 }) {
   const API_BASE = useMemo(() => {
     const raw = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-    return raw.replace(/\/?api\/?$/, '');
+    // Remove trailing /api or /api/, then trim any trailing slashes to keep a clean origin
+    return raw.replace(/\/?api\/?$/, '').replace(/\/+$/, '');
   }, []);
 
   const value = useMemo<SettingsContextValue>(() => {
@@ -50,10 +51,15 @@ export function SettingsProvider({
       return fallback;
     };
     const assetUrl = (url?: string) => {
-      if (!url) return '';
-      if (/^(https?:)?\/\//i.test(url)) return url;
-      if (url.startsWith('data:')) return url;
-      return `${API_BASE}${url}`;
+      let u = (url || '').trim();
+      if (!u) return '';
+      if (/^(https?:)?\/\//i.test(u)) return u;
+      if (u.startsWith('data:')) return u;
+      // Ensure a single leading slash
+      if (!u.startsWith('/')) u = `/${u}`;
+      // If someone stored an older value like /api/uploads/..., strip the leading /api
+      u = u.replace(/^\/api\/(?=uploads\//), '/');
+      return `${API_BASE}${u}`;
     };
     return { settings: normalized, apiBase: API_BASE, get, assetUrl };
   }, [API_BASE, initialSettings]);

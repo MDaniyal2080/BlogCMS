@@ -4,6 +4,7 @@ import "./globals.css";
 import { SettingsProvider } from '@/components/public/SettingsContext';
 import ToasterProvider from '@/components/system/ToasterProvider';
 import TopProgressBar from '@/components/system/TopProgressBar';
+import { assetUrl } from '@/lib/assetUrl';
 
 const inter = Inter({
   subsets: ["latin"],
@@ -59,11 +60,10 @@ export async function generateMetadata(): Promise<Metadata> {
     const keywordsStr = map.meta_keywords || '';
     const keywords = keywordsStr ? keywordsStr.split(',').map((k) => k.trim()).filter(Boolean) : undefined;
     const favicon = map.favicon_url;
-    const API_BASE = API_URL.replace(/\/?api\/?$/, '');
-    const icon = favicon ? (favicon.startsWith('http') ? favicon : `${API_BASE}${favicon}`) : undefined;
+    const icon = assetUrl(favicon, API_URL) || undefined;
     const siteUrl = map.site_url && /^https?:\/\//i.test(map.site_url) ? map.site_url : undefined;
     const ogImageCandidate = map.og_image_url || map.site_logo_url || favicon;
-    const ogImage = ogImageCandidate ? (ogImageCandidate.startsWith('http') ? ogImageCandidate : `${API_BASE}${ogImageCandidate}`) : undefined;
+    const ogImage = assetUrl(ogImageCandidate, API_URL) || undefined;
 
     return {
       metadataBase: siteUrl ? new URL(siteUrl) : undefined,

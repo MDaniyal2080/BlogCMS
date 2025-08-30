@@ -34,3 +34,40 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Testing
+
+This project uses Vitest for unit tests.
+
+Install dependencies and run tests:
+
+```bash
+npm install
+npm run test
+```
+
+Watch mode:
+
+```bash
+npm run test:watch
+```
+
+Notes:
+
+- Tests are colocated under `src/**/*.{test,spec}.{ts,tsx}`.
+- Path alias `@/* -> src/*` is configured in `vitest.config.ts`.
+- Asset URL helper tests live in `src/lib/assetUrl.test.ts` and cover `normalizeAssetPath()`, `apiBaseFromRaw()`, `assetUrlFromApiBase()`, and `assetUrl()`.
+
+## Asset URLs
+
+All image/asset URLs must be resolved via the shared helpers to avoid manual origin concatenation:
+
+- Server and shared code: use `assetUrl()` from `src/lib/assetUrl.ts`.
+- Client React components: use `useSettings().assetUrl()` from `src/components/public/SettingsContext.tsx`.
+
+Notes:
+
+- These helpers keep absolute `http(s)`, protocol-relative `//`, and `data:` URLs as-is.
+- Relative paths like `uploads/x.png` become `/uploads/x.png`.
+- Legacy `/api/uploads/...` is normalized to `/uploads/...`.
+- When `NEXT_PUBLIC_API_URL` is empty in production builds, helpers return relative paths, which is safe for assets served by the same origin.

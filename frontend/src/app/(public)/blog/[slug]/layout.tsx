@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
+import { assetUrl } from '@/lib/assetUrl';
 
 const API_URL_ENV = process.env.NEXT_PUBLIC_API_URL?.trim();
 const API_URL = API_URL_ENV && API_URL_ENV.length > 0
   ? API_URL_ENV
   : (process.env.NODE_ENV === 'development' ? 'http://localhost:3001/api' : '');
-const API_BASE = API_URL.replace(/\/?api\/?$/, '');
 
 async function getPost(slug: string) {
   const DISABLE_BUILD_FETCH = process.env.DISABLE_BUILD_TIME_SETTINGS_FETCH === 'true';
@@ -52,7 +52,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     ? post.metaKeywords.split(',').map((k: string) => k.trim()).filter(Boolean)
     : undefined;
   const imageCandidate: string | undefined = post.featuredImage;
-  const image = imageCandidate ? (imageCandidate.startsWith('http') ? imageCandidate : `${API_BASE}${imageCandidate}`) : undefined;
+  const image = assetUrl(imageCandidate, API_URL) || undefined;
 
   return {
     title,
@@ -85,11 +85,7 @@ export default async function PostLayout({ children, params }: { children: React
         '@type': 'BlogPosting',
         headline: post.title,
         description: post.metaDescription || post.excerpt || stripHtml(post.content).slice(0, 220),
-        image: post.featuredImage
-          ? post.featuredImage.startsWith('http')
-            ? post.featuredImage
-            : `${API_BASE}${post.featuredImage}`
-          : undefined,
+        image: post.featuredImage ? assetUrl(post.featuredImage, API_URL) : undefined,
         datePublished: post.publishedAt || post.createdAt,
         dateModified: post.updatedAt || post.publishedAt || post.createdAt,
         author: post.author?.name ? { '@type': 'Person', name: post.author.name } : undefined,

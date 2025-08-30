@@ -12,10 +12,12 @@ import { Category, Tag, Post } from '@/types';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { markdownComponents } from '@/components/public/MarkdownComponents';
+import { useSettings } from '@/components/public/SettingsContext';
 
 const PostEditor = dynamic(() => import('@/components/admin/PostEditor'), { ssr: false });
 
 export default function EditPostPage() {
+  const { assetUrl } = useSettings();
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const id = useMemo(() => {
@@ -58,7 +60,6 @@ export default function EditPostPage() {
   const [originalCategoryIds, setOriginalCategoryIds] = useState<string[] | null>(null);
 
   const featuredFileInputRef = useRef<HTMLInputElement>(null);
-  const apiOrigin = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/api$/, '');
 
   useEffect(() => {
     const run = async () => {
@@ -293,7 +294,7 @@ export default function EditPostPage() {
                         try {
                           const res = await uploadAPI.uploadCover(file);
                           const url: string = (res as any).data?.url || '';
-                          const fullUrl = url.startsWith('http') ? url : `${apiOrigin}${url}`;
+                          const fullUrl = assetUrl(url);
                           setFeaturedImage(fullUrl);
                         } catch (err) {
                           console.error('Cover image upload failed', err);

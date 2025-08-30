@@ -6,13 +6,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { auth } from '@/lib/auth';
-import { profileAPI, uploadAPI, toAbsoluteUrl } from '@/lib/api';
+import { profileAPI, uploadAPI } from '@/lib/api';
+import { useSettings } from '@/components/public/SettingsContext';
 import { Save, User, Image as ImageIcon, ShieldCheck, Bell } from 'lucide-react';
 
 type ActivityLog = { id: string; action: string; metadata?: any; createdAt: string };
 type Notifications = { emailOnComments: boolean; emailOnMentions: boolean; newsletter: boolean };
 
 export default function ProfilePage() {
+  const { assetUrl } = useSettings();
   const [user, setUser] = useState<any>(null);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -173,7 +175,7 @@ export default function ProfilePage() {
               <div className="flex items-center gap-4">
                 <div className="h-16 w-16 rounded-full bg-muted overflow-hidden flex items-center justify-center">
                   {avatar ? (
-                    <Image src={toAbsoluteUrl(avatar)} alt="avatar" width={64} height={64} className="h-full w-full object-cover" />
+                    <Image src={assetUrl(avatar)} alt="avatar" width={64} height={64} className="h-full w-full object-cover" />
                   ) : (
                     <ImageIcon className="h-6 w-6 text-muted-foreground" />
                   )}
