@@ -41,7 +41,12 @@ export const auth = {
       // Avoid duplicating the token in a readable cookie.
       const SEND_CREDENTIALS = process.env.NEXT_PUBLIC_SEND_CREDENTIALS === 'true';
       if (!SEND_CREDENTIALS) {
+        // Token mode: persist readable token for app and middleware
         setCookie('token', access_token, rememberMe ? 30 : undefined);
+      } else {
+        // Cookie mode: do not duplicate the token in a readable cookie.
+        // Ensure any old token cookie is cleared.
+        deleteCookie('token');
       }
       setCookie('user', JSON.stringify(normalizedUser), rememberMe ? 30 : undefined);
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { auth } from '@/lib/auth';
@@ -29,7 +29,6 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const router = useRouter();
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -41,11 +40,8 @@ export default function AdminLayout({
   const logoRaw = get('site_logo') || get('logo') || '';
   const logoUrl = assetUrl(logoRaw);
 
-  useEffect(() => {
-    if (!auth.isAuthenticated()) {
-      router.push('/login');
-    }
-  }, [router]);
+  // Do not perform client-side redirects here; rely on middleware
+  // to protect /admin so we avoid races with cookie-based auth.
 
   // Avoid SSR/client mismatch by deferring any cookie-based reads until mounted
   useEffect(() => {

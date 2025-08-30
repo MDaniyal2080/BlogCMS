@@ -32,7 +32,9 @@ export function middleware(req: NextRequest) {
 
   // Protect /admin routes
   if (pathname.startsWith('/admin')) {
-    if (!token || isExpired) {
+    // Allow if either a readable bootstrap token OR a 'user' cookie exists.
+    // Backend still enforces real auth; this only controls page access.
+    if ((!token && !userCookie) || isExpired) {
       const loginUrl = new URL('/login', req.url);
       // Preserve intended path to return after login
       loginUrl.searchParams.set('callbackUrl', pathname + search);
@@ -54,7 +56,7 @@ export function middleware(req: NextRequest) {
   }
 
   // If user is already authenticated, redirect /login to /admin
-  if (pathname === '/login' && token && !isExpired) {
+  if (pathname === '/login' && (token || userCookie) && !isExpired) {
     return NextResponse.redirect(new URL('/admin', req.url));
   }
 

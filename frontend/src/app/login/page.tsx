@@ -1,12 +1,13 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { auth } from '@/lib/auth';
+import { profileAPI } from '@/lib/api';
 
 export default function LoginPage() {
   return (
@@ -25,6 +26,40 @@ function LoginForm() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Ensure the server-set HttpOnly cookie is accepted before navigating
+  const ensureAuthReady = async (retries = 5): Promise<boolean> => {
+    try {
+      await profileAPI.getMe();
+      return true;
+    } catch {
+      if (retries <= 0) return false;
+      await new Promise((r) => setTimeout(r, 200));
+      return ensureAuthReady(retries - 1);
+    }
+  };
+
+  // If we got bounced to /login?callbackUrl=... but cookies are now present,
+  // auto-finish the navigation without requiring a manual refresh.
+  // Only needed in cookie mode.
+  const SEND_CREDENTIALS = process.env.NEXT_PUBLIC_SEND_CREDENTIALS === 'true';
+  const cbUrl = searchParams.get('callbackUrl') || '/admin';
+  
+  const maybeAutoFinish = async () => {
+    if (!SEND_CREDENTIALS) return;
+    if (!cbUrl) return;
+    // If user cookie exists, we likely already have auth; still probe the API to be sure
+    if (auth.isAuthenticated()) {
+      const ok = await ensureAuthReady(10);
+      if (ok && typeof window !== 'undefined') {
+        window.location.replace(cbUrl);
+      }
+    }
+  };
+
+  // Run once on mount
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { void maybeAutoFinish(); }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -33,8 +68,18 @@ function LoginForm() {
     const result = await auth.login(email, password, rememberMe);
     
     if (result.success) {
-      const callbackUrl = searchParams.get('callbackUrl');
-      router.push(callbackUrl || '/admin');
+      const callbackUrl = searchParams.get('callbackUrl') || '/admin';
+      const SEND_CREDENTIALS = process.env.NEXT_PUBLIC_SEND_CREDENTIALS === 'true';
+      if (SEND_CREDENTIALS) {
+        // Probe the backend to make sure the cookie is recognized, then hard navigate
+        await ensureAuthReady();
+        if (typeof window !== 'undefined') {
+          window.location.replace(callbackUrl);
+          return;
+        }
+      }
+      // Token mode can safely use client-side navigation
+      router.replace(callbackUrl);
     } else {
       setError(result.error || 'Login failed');
       setLoading(false);
