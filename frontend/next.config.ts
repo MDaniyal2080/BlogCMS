@@ -10,8 +10,16 @@ try {
   BACKEND_HOST = u.hostname;
 } catch {}
 
+// Netlify's Next.js plugin can sometimes fail to serve the image optimizer route
+// (/_next/image) depending on version compatibility. To ensure images always
+// render in production on Netlify, disable Next/Image optimization there and
+// fall back to native <img> tags.
+const IS_NETLIFY = process.env.NETLIFY === 'true' || process.env.NETLIFY === '1';
+
 const nextConfig: NextConfig = {
   images: {
+    // Bypass Next.js image optimizer on Netlify to prevent 404s at /_next/image
+    unoptimized: IS_NETLIFY,
     formats: ['image/avif', 'image/webp'],
     // Allow common domains plus backend host derived from API URL
     domains: Array.from(new Set([
@@ -31,6 +39,17 @@ const nextConfig: NextConfig = {
         protocol: 'http',
         hostname: '127.0.0.1',
         port: '3001',
+        pathname: '/uploads/**',
+      },
+      // Explicitly allow uploads from the configured backend host
+      {
+        protocol: 'https',
+        hostname: BACKEND_HOST,
+        pathname: '/uploads/**',
+      },
+      {
+        protocol: 'http',
+        hostname: BACKEND_HOST,
         pathname: '/uploads/**',
       },
       {

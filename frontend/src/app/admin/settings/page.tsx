@@ -460,6 +460,7 @@ export default function SettingsPage() {
                   width={48}
                   height={48}
                   className="h-12 w-12 rounded border object-contain"
+                  unoptimized
                 />
               )}
               {logoUploading && <span className="text-sm">Uploading...</span>}
@@ -481,6 +482,7 @@ export default function SettingsPage() {
                   width={32}
                   height={32}
                   className="h-8 w-8 rounded border object-contain"
+                  unoptimized
                 />
               )}
               {faviconUploading && <span className="text-sm">Uploading...</span>}

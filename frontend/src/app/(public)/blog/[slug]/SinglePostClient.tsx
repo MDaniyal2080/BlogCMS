@@ -140,6 +140,7 @@ export default function SinglePostClient({ slug, initialPost }: { slug: string; 
               fill
               className="object-cover rounded-lg"
               sizes="(max-width: 1024px) 100vw, 1024px"
+              unoptimized
               priority
             />
           </div>

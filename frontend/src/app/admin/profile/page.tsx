@@ -175,7 +175,7 @@ export default function ProfilePage() {
               <div className="flex items-center gap-4">
                 <div className="h-16 w-16 rounded-full bg-muted overflow-hidden flex items-center justify-center">
                   {avatar ? (
-                    <Image src={assetUrl(avatar)} alt="avatar" width={64} height={64} className="h-full w-full object-cover" />
+                    <Image src={assetUrl(avatar)} alt="avatar" width={64} height={64} className="h-full w-full object-cover" unoptimized />
                   ) : (
                     <ImageIcon className="h-6 w-6 text-muted-foreground" />
                   )}
