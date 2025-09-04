@@ -197,7 +197,11 @@ async function bootstrap() {
   }
 
   // Security middleware, call via typed factory aliases
-  const helmetMw: RequestHandler = helmet();
+  const helmetMw: RequestHandler = helmet({
+    // Allow resources (like images under /uploads) to be embedded from other origins (Netlify)
+    // Without this, browsers may block with ERR_BLOCKED_BY_RESPONSE.NotSameOrigin
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  });
   const compressionMw: RequestHandler = (
     compression as unknown as () => RequestHandler
   )();

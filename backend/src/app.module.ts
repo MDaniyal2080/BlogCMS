@@ -23,6 +23,12 @@ import { HealthModule } from './health/health.module';
     ServeStaticModule.forRoot({
       rootPath: join(process.cwd(), 'uploads'),
       serveRoot: '/uploads',
+      serveStaticOptions: {
+        setHeaders: (res) => {
+          // Allow cross-origin embedding of static assets (images)
+          res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+        },
+      },
     }),
     PrismaModule,
     AuthModule,
