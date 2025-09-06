@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
+import { useState } from 'react';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { formatDate, truncate, readingTime } from '@/lib/utils';
 import { Post } from '@/types';
@@ -17,6 +18,7 @@ export default function BlogCard({ post, highlight }: BlogCardProps) {
   const { settings, assetUrl } = useSettings();
   const tz = settings.timezone || 'UTC';
   const imgSrc = assetUrl(post.featuredImage || '');
+  const [imgError, setImgError] = useState(false);
 
   const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const renderHighlighted = (text: string, q?: string) => {
@@ -36,7 +38,7 @@ export default function BlogCard({ post, highlight }: BlogCardProps) {
 
   return (
     <Card className="group overflow-hidden transition-all hover:-translate-y-[2px] hover:shadow-lg">
-      {imgSrc && (
+      {imgSrc && !imgError && (
         <div className="relative w-full h-48">
           <Image
             src={imgSrc}
@@ -45,7 +47,13 @@ export default function BlogCard({ post, highlight }: BlogCardProps) {
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
             className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
             unoptimized
+            onError={() => setImgError(true)}
           />
+        </div>
+      )}
+      {imgSrc && imgError && (
+        <div className="w-full h-48 bg-muted flex items-center justify-center text-muted-foreground">
+          <span className="text-sm">Image not available</span>
         </div>
       )}
       <CardHeader>

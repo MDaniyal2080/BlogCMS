@@ -25,6 +25,7 @@ export default function SinglePostClient({ slug, initialPost }: { slug: string; 
   const [prevNext, setPrevNext] = useState<{ prev: Post | null; next: Post | null } | null>(null);
   const incrementedRef = useRef(false);
   const sanitizedHtml = useMemo(() => sanitizeHtml(post?.content || ''), [post?.content]);
+  const [coverError, setCoverError] = useState(false);
 
   // Defer loading of Comments to reduce initial bundle size
   const Comments = useRef(
@@ -132,7 +133,7 @@ export default function SinglePostClient({ slug, initialPost }: { slug: string; 
   return (
     <article>
       <div className="container mx-auto px-4 py-6 sm:py-12">
-        {post.featuredImage && (
+        {post.featuredImage && !coverError && (
           <div className="relative w-full aspect-[16/9] mb-8">
             <Image
               src={assetUrl(post.featuredImage)}
@@ -142,7 +143,13 @@ export default function SinglePostClient({ slug, initialPost }: { slug: string; 
               sizes="(max-width: 1024px) 100vw, 1024px"
               unoptimized
               priority
+              onError={() => setCoverError(true)}
             />
+          </div>
+        )}
+        {post.featuredImage && coverError && (
+          <div className="w-full aspect-[16/9] mb-8 rounded-lg bg-muted flex items-center justify-center text-muted-foreground">
+            <span className="text-sm">Cover image not available</span>
           </div>
         )}
 

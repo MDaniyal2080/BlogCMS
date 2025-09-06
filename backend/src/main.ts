@@ -13,6 +13,8 @@ import helmet from 'helmet';
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
+import { existsSync, mkdirSync } from 'fs';
+import { join } from 'path';
 
 type RequestWithCookies = Request & {
   cookies?: Record<string, string | undefined>;
@@ -55,7 +57,12 @@ async function bootstrap() {
       const v = rawTrust.trim().toLowerCase();
       if (v === 'true' || v === 'yes' || v === 'on' || v === 'enabled') {
         trustProxy = true;
-      } else if (v === 'false' || v === 'no' || v === 'off' || v === 'disabled') {
+      } else if (
+        v === 'false' ||
+        v === 'no' ||
+        v === 'off' ||
+        v === 'disabled'
+      ) {
         trustProxy = false;
       } else if (!Number.isNaN(Number.parseInt(v, 10))) {
         trustProxy = Number.parseInt(v, 10);
@@ -76,6 +83,19 @@ async function bootstrap() {
   } catch (err) {
     // Non-fatal: adapter may not be Express in some environments
     console.warn('Could not configure Express adapter:', err);
+  }
+
+  // Ensure uploads directory exists and log its absolute path (useful for Railway volume mount)
+  try {
+    const uploadsDir = join(process.cwd(), 'uploads');
+    if (!existsSync(uploadsDir)) {
+      mkdirSync(uploadsDir, { recursive: true });
+      console.log('📁 Created uploads directory at:', uploadsDir);
+    } else {
+      console.log('📁 Uploads directory exists at:', uploadsDir);
+    }
+  } catch (err) {
+    console.warn('⚠️ Could not ensure uploads directory:', err);
   }
 
   // Global API prefix

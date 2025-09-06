@@ -7,6 +7,7 @@ import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './prisma/prisma.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
+import type { Response } from 'express';
 import { PostsModule } from './posts/posts.module';
 import { UploadModule } from './upload/upload.module';
 import { SettingsModule } from './settings/settings.module';
@@ -24,7 +25,7 @@ import { HealthModule } from './health/health.module';
       rootPath: join(process.cwd(), 'uploads'),
       serveRoot: '/uploads',
       serveStaticOptions: {
-        setHeaders: (res) => {
+        setHeaders: (res: Response) => {
           // Allow cross-origin embedding of static assets (images)
           res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
         },

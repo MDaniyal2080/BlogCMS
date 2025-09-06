@@ -12,6 +12,7 @@ export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const { settings, assetUrl } = useSettings();
+  const [logoError, setLogoError] = useState(false);
 
   const siteName = settings.site_name || 'BlogCMS';
   const tagline = settings.site_tagline || '';
@@ -38,8 +39,17 @@ export default function Header() {
         <div className="flex justify-between items-center h-14 sm:h-16">
           {/* Logo */}
           <Link href="/" className="text-xl sm:text-2xl font-bold">
-            {logoUrl ? (
-              <Image src={logoUrl} alt={siteName} width={32} height={32} className="h-8 w-8 rounded" priority unoptimized />
+            {logoUrl && !logoError ? (
+              <Image
+                src={logoUrl}
+                alt={siteName}
+                width={32}
+                height={32}
+                className="h-8 w-8 rounded"
+                priority
+                unoptimized
+                onError={() => setLogoError(true)}
+              />
             ) : (
               <span className="text-2xl font-bold text-primary">{siteName}</span>
             )}

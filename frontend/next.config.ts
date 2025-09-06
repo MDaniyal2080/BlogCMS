@@ -27,6 +27,7 @@ const nextConfig: NextConfig = {
       'localhost',
       '127.0.0.1',
       BACKEND_HOST,
+      'res.cloudinary.com',
     ].filter(Boolean))) as string[],
     remotePatterns: [
       {
@@ -55,6 +56,11 @@ const nextConfig: NextConfig = {
       {
         protocol: 'https',
         hostname: 'images.unsplash.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'res.cloudinary.com',
         pathname: '/**',
       },
     ],
