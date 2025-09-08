@@ -1,13 +1,19 @@
 import type { NextConfig } from "next";
 
-// Derive backend origin from env (fall back to local dev)
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-let API_ORIGIN = 'http://localhost:3001';
-let BACKEND_HOST = 'localhost';
+// Derive backend origin from env.
+// In production, do NOT default to localhost when NEXT_PUBLIC_API_URL is unset.
+const RAW = process.env.NEXT_PUBLIC_API_URL?.trim();
+const API_URL = RAW && RAW.length > 0
+  ? RAW
+  : (process.env.NODE_ENV === 'development' ? 'http://localhost:3001/api' : '');
+let API_ORIGIN = '';
+let BACKEND_HOST = '';
 try {
-  const u = new URL(API_URL);
-  API_ORIGIN = `${u.protocol}//${u.host}`;
-  BACKEND_HOST = u.hostname;
+  if (API_URL) {
+    const u = new URL(API_URL);
+    API_ORIGIN = `${u.protocol}//${u.host}`;
+    BACKEND_HOST = u.hostname;
+  }
 } catch {}
 
 // Netlify's Next.js plugin can sometimes fail to serve the image optimizer route
@@ -43,16 +49,11 @@ const nextConfig: NextConfig = {
         pathname: '/uploads/**',
       },
       // Explicitly allow uploads from the configured backend host
-      {
-        protocol: 'https',
-        hostname: BACKEND_HOST,
-        pathname: '/uploads/**',
-      },
-      {
-        protocol: 'http',
-        hostname: BACKEND_HOST,
-        pathname: '/uploads/**',
-      },
+      // Allow uploads from configured backend host when provided
+      ...(BACKEND_HOST ? [
+        { protocol: 'https' as const, hostname: BACKEND_HOST, pathname: '/uploads/**' },
+        { protocol: 'http' as const, hostname: BACKEND_HOST, pathname: '/uploads/**' },
+      ] : []),
       {
         protocol: 'https',
         hostname: 'images.unsplash.com',
@@ -83,15 +84,13 @@ const nextConfig: NextConfig = {
     ];
   },
   async rewrites() {
+    if (!API_ORIGIN) {
+      // No backend origin configured: do not rewrite. Requests go to same-origin.
+      return [];
+    }
     return [
-      {
-        source: '/api/:path*',
-        destination: `${API_ORIGIN}/api/:path*`,
-      },
-      {
-        source: '/uploads/:path*',
-        destination: `${API_ORIGIN}/uploads/:path*`,
-      },
+      { source: '/api/:path*', destination: `${API_ORIGIN}/api/:path*` },
+      { source: '/uploads/:path*', destination: `${API_ORIGIN}/uploads/:path*` },
     ];
   },
 };

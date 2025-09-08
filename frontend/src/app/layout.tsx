@@ -55,7 +55,12 @@ export async function generateMetadata(): Promise<Metadata> {
         const nk = normalizeKeyName(s.key);
         if (!nk) return;
         const q = isCanonicalKey(s.key) ? 2 : 1;
-        if (map[nk] === undefined || map[nk] === '' || q > (quality[nk] || 0)) {
+        const val = String(s.value ?? '');
+        if (
+          map[nk] === undefined ||
+          map[nk] === '' ||
+          (q > (quality[nk] || 0) && val.trim() !== '')
+        ) {
           map[nk] = s.value;
           quality[nk] = q;
         }
@@ -148,7 +153,12 @@ export default async function RootLayout({
         const nk = normalizeKeyName(s.key);
         if (!nk) return;
         const q = isCanonicalKey(s.key) ? 2 : 1;
-        if (settingsMap[nk] === undefined || settingsMap[nk] === '' || q > (quality[nk] || 0)) {
+        const val = String(s.value ?? '');
+        if (
+          settingsMap[nk] === undefined ||
+          settingsMap[nk] === '' ||
+          (q > (quality[nk] || 0) && val.trim() !== '')
+        ) {
           settingsMap[nk] = s.value;
           quality[nk] = q;
         }

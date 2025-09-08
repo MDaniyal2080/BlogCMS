@@ -52,8 +52,13 @@ export function SettingsProvider({
       const nk = normalizeKeyName(k);
       if (!nk) return;
       const q = isCanonicalKey(k) ? 2 : 1;
-      if (map[nk] === undefined || map[nk] === '' || q > (quality[nk] || 0)) {
-        map[nk] = v;
+      const val = String(v ?? '');
+      if (
+        map[nk] === undefined ||
+        map[nk] === '' ||
+        (q > (quality[nk] || 0) && val.trim() !== '')
+      ) {
+        map[nk] = v as string;
         quality[nk] = q;
       }
     });
@@ -80,8 +85,13 @@ export function SettingsProvider({
             const nk = normalizeKeyName(s.key);
             if (!nk) continue;
             const q = isCanonicalKey(s.key) ? 2 : 1;
-            if (next[nk] === undefined || next[nk] === '' || q > (quality[nk] || 0)) {
-              next[nk] = s.value;
+            const val = String(s.value ?? '');
+            if (
+              next[nk] === undefined ||
+              next[nk] === '' ||
+              (q > (quality[nk] || 0) && val.trim() !== '')
+            ) {
+              next[nk] = s.value as string;
               quality[nk] = q;
             }
           }

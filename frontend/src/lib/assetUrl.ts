@@ -24,8 +24,12 @@ export function normalizeAssetPath(url?: string): string {
 // If rawApiUrl is an empty string, return empty string to allow relative URLs in production builds.
 export function apiBaseFromRaw(rawApiUrl?: string): string {
   if (typeof rawApiUrl === 'undefined') {
-    const raw = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-    return raw.replace(/\/?api\/?$/, '').replace(/\/+$/, '');
+    const raw = process.env.NEXT_PUBLIC_API_URL;
+    if (typeof raw === 'string' && raw.trim().length > 0) {
+      return raw.trim().replace(/\/?api\/?$/, '').replace(/\/+$/, '');
+    }
+    // In production, avoid defaulting to localhost. Use relative paths instead.
+    return process.env.NODE_ENV === 'development' ? 'http://localhost:3001' : '';
   }
   const given = rawApiUrl.trim();
   if (!given) return '';
@@ -41,7 +45,8 @@ export function assetUrlFromApiBase(url?: string, apiBase?: string): string {
     // Fix legacy absolute URLs like https://host/api//uploads/... -> https://host/uploads/...
     return p.replace(/^(https?:\/\/[^\/]+)\/api\/+uploads\//i, '$1/uploads/');
   }
-  const base = (apiBase || '').trim();
+  // Be defensive: strip trailing /api from provided base (even if caller forgot)
+  const base = (apiBase || '').trim().replace(/\/?api\/?$/, '').replace(/\/+$/, '');
   return base ? `${base}${p}` : p;
 }
 
