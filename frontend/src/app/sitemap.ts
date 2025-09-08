@@ -18,10 +18,20 @@ async function getSettings(): Promise<Record<string, string>> {
     const settings = await res.json();
     const map: Record<string, string> = {};
     const normalize = (k: string) => k.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    const isCanonicalKey = (k: string) => {
+      const t = String(k).trim();
+      return /^[a-z0-9_]+$/.test(t) && normalize(t) === t;
+    };
+    const quality: Record<string, number> = {};
     (settings || []).forEach((s: any) => {
       if (s?.key) {
         const nk = normalize(s.key);
-        if (nk && (map[nk] === undefined || map[nk] === '')) map[nk] = s.value;
+        if (!nk) return;
+        const q = isCanonicalKey(s.key) ? 2 : 1;
+        if (map[nk] === undefined || map[nk] === '' || q > (quality[nk] || 0)) {
+          map[nk] = s.value;
+          quality[nk] = q;
+        }
       }
     });
     return map;

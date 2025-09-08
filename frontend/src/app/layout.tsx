@@ -43,14 +43,21 @@ export async function generateMetadata(): Promise<Metadata> {
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '_')
         .replace(/^_+|_+$/g, '');
+    // Prefer canonical underscore keys (e.g., `site_name`) over legacy variants (e.g., `siteName`)
+    const isCanonicalKey = (k: string) => {
+      const t = String(k).trim();
+      return /^[a-z0-9_]+$/.test(t) && normalizeKeyName(t) === t;
+    };
     const map: Record<string, string> = {};
+    const quality: Record<string, number> = {};
     (settings || []).forEach((s: any) => {
       if (s && s.key) {
         const nk = normalizeKeyName(s.key);
-        if (nk) {
-          if (map[nk] === undefined || map[nk] === '') {
-            map[nk] = s.value;
-          }
+        if (!nk) return;
+        const q = isCanonicalKey(s.key) ? 2 : 1;
+        if (map[nk] === undefined || map[nk] === '' || q > (quality[nk] || 0)) {
+          map[nk] = s.value;
+          quality[nk] = q;
         }
       }
     });
@@ -130,13 +137,20 @@ export default async function RootLayout({
         clearTimeout(t);
       }
     })();
+    // Prefer canonical underscore keys over legacy variants
+    const isCanonicalKey = (k: string) => {
+      const t = String(k).trim();
+      return /^[a-z0-9_]+$/.test(t) && normalizeKeyName(t) === t;
+    };
+    const quality: Record<string, number> = {};
     (list || []).forEach((s: any) => {
       if (s && s.key) {
         const nk = normalizeKeyName(s.key);
-        if (nk) {
-          if (settingsMap[nk] === undefined || settingsMap[nk] === '') {
-            settingsMap[nk] = s.value;
-          }
+        if (!nk) return;
+        const q = isCanonicalKey(s.key) ? 2 : 1;
+        if (settingsMap[nk] === undefined || settingsMap[nk] === '' || q > (quality[nk] || 0)) {
+          settingsMap[nk] = s.value;
+          quality[nk] = q;
         }
       }
     });
